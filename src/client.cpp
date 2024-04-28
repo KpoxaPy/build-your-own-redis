@@ -50,6 +50,7 @@ Client::ProcessStatus Client::process() {
       this->_raw_messages.pop();
     }
     this->send("+PONG\r\n");
+    return ProcessStatus::Closed;
   } catch (const ConnReset&) {
     return ProcessStatus::Closed;
   }
