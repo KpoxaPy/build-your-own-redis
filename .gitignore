@@ -44,6 +44,14 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
-
 build/
 vcpkg_installed
+
+# Ninja
+.ninja_deps
+.ninja_log
+build.ninja
+rules.ninja
+
+#VSCode
+.vscode
