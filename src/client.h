@@ -30,11 +30,12 @@ private:
   std::chrono::steady_clock::time_point _begin_time;
   RawMessageBuffer _buffer;
   std::queue<RawMessage> _raw_messages;
+  bool met_new_message = false;
 
   void close();
 
-  void read();
-  void parse_raw_messages();
+  std::size_t read();
+  std::size_t parse_raw_messages();
 
   void send(const std::string& str);
 };

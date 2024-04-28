@@ -43,14 +43,21 @@ Client::Client(Client&& other) {
 
 Client::ProcessStatus Client::process() {
   try {
-    this->read();
+    auto new_messages = this->read();
+
+    if (new_messages == 0) {
+      if (this->met_new_message) {
+        this->send("+PONG\r\n");
+        this->met_new_message = false;
+      }
+    } else {
+      this->met_new_message = true;
+    }
 
     while (!this->_raw_messages.empty()) {
       std::cout << "< " << this->_raw_messages.front() << std::endl;
       this->_raw_messages.pop();
     }
-    this->send("+PONG\r\n");
-    return ProcessStatus::Closed;
   } catch (const ConnReset&) {
     return ProcessStatus::Closed;
   }
@@ -65,7 +72,7 @@ void Client::close() {
   }
 }
 
-void Client::read() {
+std::size_t Client::read() {
   static constexpr std::size_t READ_BUFFER_SIZE = 1024;
   std::array<std::byte, READ_BUFFER_SIZE> read_buffer;
 
@@ -89,24 +96,30 @@ void Client::read() {
     break;
   }
 
-  this->parse_raw_messages();
+  return this->parse_raw_messages();
 }
 
-void Client::parse_raw_messages() {
+std::size_t Client::parse_raw_messages() {
+  size_t new_messages = 0;
+
   const RawMessage delim = {std::byte{'\r'}, std::byte{'\n'}};
   while (true) {
     auto result_it = std::search(this->_buffer.begin(), this->_buffer.end(), delim.begin(), delim.end());
     if (result_it == this->_buffer.end()) {
-      return;
+      break;
     }
 
     this->_raw_messages.emplace(this->_buffer.begin(), result_it);
     this->_buffer.erase(this->_buffer.begin(), result_it + delim.size());
+    ++new_messages;
   }
+
+  return new_messages;
 }
 
 void Client::send(const std::string& str) {
   std::size_t transferred_total = 0;
+  std::cerr << "> " << str << std::endl;
   while (transferred_total < str.size()) {
     ssize_t transferred = write(
       this->_client_fd.value(),
