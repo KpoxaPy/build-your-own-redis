@@ -53,5 +53,5 @@ vcpkg_installed
 build.ninja
 rules.ninja
 
-#VSCode
-.vscode
+# VSCode
+.vscode/
