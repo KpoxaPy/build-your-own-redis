@@ -162,7 +162,7 @@ void Client::reply_to_get(const Message& message) {
   const auto& key = std::get<std::string>(data[1].getValue());
 
   if (auto maybe_value = this->_storage.get(key)) {
-    this->send(Message(Message::Type::BulkString, maybe_value.value().get()));
+    this->send(Message(Message::Type::BulkString, maybe_value.value()));
     return;
   }
 
