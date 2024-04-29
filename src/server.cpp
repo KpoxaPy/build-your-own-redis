@@ -10,6 +10,28 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+
+std::string ServerInfo::to_string(std::unordered_set<std::string> parts) const {
+  std::ostringstream ss;
+
+  for (const auto& part: parts) {
+    if (part == "replication") {
+      ss << this->replication.to_string();
+    }
+  }
+
+  return ss.str();
+}
+
+std::string ServerInfo::Replication::to_string() const {
+  std::ostringstream ss;
+
+  ss << "#Replication" << std::endl;
+  ss << "role:" << this->role << std::endl;
+
+  return ss.str();
+}
+
 Server::Server(int port, Storage& storage)
   : _storage(storage)
 {
@@ -58,7 +80,11 @@ std::optional<Client> Server::accept() {
     }
   }
 
-  return std::move(Client(client_fd, this->_storage));
+  return std::move(Client(client_fd, *this, this->_storage));
+}
+
+ServerInfo& Server::info() {
+  return this->_info;
 }
 
 void Server::close() {

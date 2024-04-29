@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+class Server;
+
 class Client {
 public:
   enum class ProcessStatus {
@@ -19,7 +21,7 @@ public:
     Closed,
   };
 
-  Client(int fd, Storage& storage);
+  Client(int fd, Server& server, Storage& storage);
   Client(Client&&);
   ~Client();
 
@@ -30,6 +32,7 @@ private:
   std::chrono::steady_clock::time_point _begin_time;
   RawMessageBuffer _buffer;
   RawMessagesStream _raw_messages;
+  Server& _server;
   Storage& _storage;
 
   void reply_to(const Message&);
@@ -37,6 +40,7 @@ private:
   void reply_to_ping();
   void reply_to_set(const Message&);
   void reply_to_get(const Message&);
+  void reply_to_info(const Message&);
   void reply_unknown();
 
   void close();

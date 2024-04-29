@@ -33,6 +33,8 @@ int main(int argc, char **argv) {
     Server server(port, storage);
     std::list<Client> clients;
 
+    server.info().replication.role = "master";
+
     while (true) {
       try {
         while (auto maybe_client = server.accept()) {

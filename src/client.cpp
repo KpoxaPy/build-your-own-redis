@@ -1,5 +1,6 @@
 #include "client.h"
 #include "message.h"
+#include "server.h"
 #include "utils.h"
 
 #include <algorithm>
@@ -11,15 +12,17 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <unordered_set>
 
 class ConnReset : std::runtime_error {
 public:
   ConnReset() : std::runtime_error("Conn reset") {}
 };
 
-Client::Client(int fd, Storage& storage)
+Client::Client(int fd, Server& server, Storage& storage)
   : _client_fd(fd)
   , _begin_time(std::chrono::steady_clock::now())
+  , _server(server)
   , _storage(storage)
 {
 }
@@ -30,6 +33,7 @@ Client::~Client() {
 
 Client::Client(Client&& other)
   : _storage(other._storage)
+  , _server(other._server)
 {
   this->_client_fd = std::move(other._client_fd);
   other._client_fd.reset();
@@ -85,6 +89,8 @@ void Client::reply_to(const Message& message) {
     this->reply_to_set(message);
   } else if (command == "get") {
     this->reply_to_get(message);
+  } else if (command == "info") {
+    this->reply_to_info(message);
   } else {
     this->reply_unknown();
   }
@@ -227,6 +233,40 @@ void Client::reply_to_get(const Message& message) {
   }
 
   this->send(Message(Message::Type::BulkString, value.data()));
+}
+
+void insert_info_parts_default(std::unordered_set<std::string>& info_parts) {
+  info_parts.insert("replication");
+}
+
+void Client::reply_to_info(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+
+  std::unordered_set<std::string> info_parts;
+
+  std::size_t data_pos = 1;
+  while (data_pos < data.size()) {
+    if (data[data_pos].type() != Message::Type::BulkString) {
+      this->send(Message(Message::Type::SimpleError, "invalid type"));
+      return;
+    }
+    std::string info_part = std::get<std::string>(data[data_pos].getValue());
+    std::transform(info_part.begin(), info_part.end(), info_part.begin(), [](unsigned char ch) { return std::tolower(ch); });
+
+    if (info_part == "default") {
+      insert_info_parts_default(info_parts);
+    } else {
+      info_parts.insert(info_part);
+    }
+
+    data_pos += 1;
+  }
+
+  if (info_parts.size() == 0) {
+    insert_info_parts_default(info_parts);
+  }
+
+  this->send(Message(Message::Type::BulkString, this->_server.info().to_string(info_parts)));
 }
 
 void Client::reply_unknown() {
