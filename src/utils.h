@@ -1,26 +1,11 @@
 #pragma once
 
+#include <charconv>
+#include <optional>
 #include <string_view>
 
-bool starts_with(std::string_view str, std::string_view what) {
-  if (what.size() > str.size()) {
-    return false;
-  }
+bool starts_with(std::string_view str, std::string_view what);
 
-  return std::string_view{str.begin(), str.begin() + what.size()}
-    == what;
-}
+std::string_view skip(std::string_view str, std::string_view what);
 
-std::string_view skip(std::string_view str, std::string_view what) {
-  if (what.size() > str.size()) {
-    return str;
-  }
-
-  if (std::string_view{str.begin(), str.begin() + what.size()}
-    == what)
-  {
-    return {str.begin() + what.size(), str.end()};
-  } else {
-    return str;
-  }
-}
+std::optional<int> parseInt(const char* first, std::size_t size);

@@ -11,6 +11,7 @@ set(SOURCE_FILES
     src/server.cpp
     src/storage.cpp
     src/types.cpp
+    src/utils.cpp
 )
 
 set(CMAKE_CXX_STANDARD 23) # Enable the C++23 standard

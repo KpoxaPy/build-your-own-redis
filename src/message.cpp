@@ -1,32 +1,9 @@
 #include "message.h"
+#include "utils.h"
 
 #include <queue>
 #include <sstream>
 #include <stdexcept>
-#include <charconv>
-
-std::optional<int> parseInt(const char* first, std::size_t size) {
-  int value;
-
-  if (size == 0) {
-    return {};
-  }
-
-  if (*first == '+') {
-    ++first;
-    --size;
-    
-    if (size == 0) {
-      return {};
-    }
-  }
-
-  if (std::from_chars(first, first + size, value).ec == std::errc{}) {
-    return value;
-  }
-
-  return {};
-}
 
 class ParseHelper {
   RawMessagesStream& _stream;

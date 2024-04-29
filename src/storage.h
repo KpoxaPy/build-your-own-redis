@@ -1,14 +1,29 @@
 #pragma once
 
+#include <chrono>
 #include <optional>
 #include <string>
 #include <unordered_map>
 
-class Storage {
+using Clock = std::chrono::steady_clock;
+using Timepoint = Clock::time_point;
+
+class Value {
 public:
-  void set(std::string key, std::string value);
-  std::optional<std::string> get(std::string key) const;
+  Value(std::string data = "");
+
+  const std::string& data() const;
+
+  void setExpire(std::chrono::milliseconds ms);
+  std::optional<Timepoint> getExpire() const;
 
 private:
-  std::unordered_map<std::string, std::string> _storage;
+  std::string _data;
+  Timepoint _create_time;
+  std::optional<Timepoint> _expire_time;
+};
+
+class Storage {
+public:
+  std::unordered_map<std::string, Value> storage;
 };

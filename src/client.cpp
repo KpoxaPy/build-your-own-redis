@@ -1,4 +1,6 @@
 #include "client.h"
+#include "message.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <array>
@@ -8,8 +10,6 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#include "message.h"
 
 class ConnReset : std::runtime_error {
 public:
@@ -115,31 +115,82 @@ void Client::reply_to_ping() {
 
 void Client::reply_to_set(const Message& message) {
   const auto& data = std::get<std::vector<Message>>(message.getValue());
-  if (data.size() < 3) {
-    std::ostringstream ss;
-    ss << "SET command must have at least 2 arguments, recieved " << data.size();
-    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+
+  std::optional<std::string> key;
+  std::optional<std::string> value;
+  std::optional<int> expire_ms;
+
+  std::size_t data_pos = 1;
+  while (data_pos < data.size()) {
+    if (data_pos == 1) {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        this->send(Message(Message::Type::SimpleError, "invalid type"));
+        return;
+      }
+      key = std::get<std::string>(data[data_pos].getValue());
+      ++data_pos;
+
+    } else if (data_pos == 2) {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        this->send(Message(Message::Type::SimpleError, "invalid type"));
+        return;
+      }
+      value = std::get<std::string>(data[data_pos].getValue());
+      ++data_pos;
+
+    } else {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        this->send(Message(Message::Type::SimpleError, "invalid type"));
+        return;
+      }
+      std::string param = std::get<std::string>(data[data_pos].getValue());
+      std::transform(param.begin(), param.end(), param.begin(), [](unsigned char ch) { return std::tolower(ch); });
+
+      if (param == "px") {
+        if (data_pos + 1 >= data.size()) {
+          std::ostringstream ss;
+          ss << "param " << std::quoted(param) << " requires argument";
+          this->send(Message(Message::Type::SimpleError, ss.str()));
+          return;
+        }
+
+        if (data[data_pos + 1].type() != Message::Type::BulkString) {
+          this->send(Message(Message::Type::SimpleError, "invalid px argument type"));
+          return;
+        }
+
+        const std::string& px_value_str = std::get<std::string>(data[data_pos + 1].getValue());
+        std::optional<int> px_value = parseInt(px_value_str.data(), px_value_str.size());
+
+        if (!px_value || px_value.value() <= 0) {
+          this->send(Message(Message::Type::SimpleError, "invalid px argument value"));
+          return;
+        }
+
+        expire_ms = px_value.value();
+        data_pos += 2;
+
+      } else {
+        std::ostringstream ss;
+        ss << "unknown param " << std::quoted(param);
+        this->send(Message(Message::Type::SimpleError, ss.str()));
+        return;
+      }
+    }
+  }
+
+  if (!key || !value) {
+    this->send(Message(Message::Type::SimpleError, "not enough arguments"));
     return;
   }
 
-  if (data[1].type() != Message::Type::BulkString) {
-    std::ostringstream ss;
-    ss << "SET command must have first argument with type BulkString";
-    this->send(Message(Message::Type::SimpleError, {ss.str()}));
-    return;
+  this->_storage.storage[key.value()] = value.value();
+  Value& stored_value = this->_storage.storage[key.value()];
+
+  if (expire_ms) {
+    stored_value.setExpire(std::chrono::milliseconds{expire_ms.value()});
   }
 
-  if (data[2].type() != Message::Type::BulkString) {
-    std::ostringstream ss;
-    ss << "SET command must have second argument with type BulkString";
-    this->send(Message(Message::Type::SimpleError, {ss.str()}));
-    return;
-  }
-
-  const auto& key = std::get<std::string>(data[1].getValue());
-  const auto& value = std::get<std::string>(data[2].getValue());
-
-  this->_storage.set(key, value);
   this->send(Message(Message::Type::SimpleString, "OK"));
 }
 
@@ -161,12 +212,20 @@ void Client::reply_to_get(const Message& message) {
 
   const auto& key = std::get<std::string>(data[1].getValue());
 
-  if (auto maybe_value = this->_storage.get(key)) {
-    this->send(Message(Message::Type::BulkString, maybe_value.value()));
+  auto it = this->_storage.storage.find(key);
+  if (it == this->_storage.storage.end()) {
+    this->send(Message(Message::Type::BulkString, {}));
+    return;
+  }
+  auto& value = it->second;
+
+  if (value.getExpire() && Clock::now() >= value.getExpire()) {
+    this->_storage.storage.erase(key);
+    this->send(Message(Message::Type::BulkString, {}));
     return;
   }
 
-  this->send(Message(Message::Type::BulkString, {}));
+  this->send(Message(Message::Type::BulkString, value.data()));
 }
 
 void Client::reply_unknown() {

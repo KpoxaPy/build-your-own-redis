@@ -1,13 +1,19 @@
 #include "storage.h"
 
-void Storage::set(std::string key, std::string value) {
-  this->_storage[key] = value;
+Value::Value(std::string data)
+  : _data(data)
+  , _create_time(Clock::now())
+{
 }
 
-std::optional<std::string> Storage::get(std::string key) const {
-  auto it = this->_storage.find(key);
-  if (it != this->_storage.end()) {
-    return {it->second};
-  }
-  return {};
+const std::string& Value::data() const {
+  return this->_data;
+}
+
+void Value::setExpire(std::chrono::milliseconds ms) {
+  this->_expire_time = Clock::now() + ms;
+}
+
+std::optional<Timepoint> Value::getExpire() const {
+  return this->_expire_time;
 }
