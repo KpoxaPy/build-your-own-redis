@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
