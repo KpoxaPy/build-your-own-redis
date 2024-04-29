@@ -9,51 +9,44 @@
 
 constexpr const int DEFAULT_PORT = 6379;
 
-struct ReplicaOf {
-  std::string host;
-  int port;
-};
-
 int main(int argc, char **argv) {
-  int port = DEFAULT_PORT;
-  std::optional<ReplicaOf> replicaof;
-
-  int arg_pos = 1;
-  while (arg_pos < argc) {
-    if (std::string("--port") == argv[arg_pos]) {
-      if (arg_pos + 1 >= argc) {
-        throw std::runtime_error("--port argument requires argument");
-      }
-
-      port = std::atoi(argv[arg_pos + 1]);
-      arg_pos += 2;
-    } else if (std::string("--replicaof") == argv[arg_pos]) {
-      if (arg_pos + 2 >= argc) {
-        throw std::runtime_error("--replicaof argument requires 2 arguments");
-      }
-      
-      ReplicaOf info;
-      info.host = argv[arg_pos + 1];
-      info.port = std::atoi(argv[arg_pos + 2]);
-      replicaof = info;
-      arg_pos += 3;
-    } else {
-      std::ostringstream ss;
-      ss << "unxepected argument: " << argv[arg_pos];
-      throw std::runtime_error(ss.str());
-    }
-  }
-
   try {
     Storage storage;
-    Server server(port, storage);
+    Server server(storage);
     std::list<Client> clients;
 
-    if (!replicaof) {
-      server.info().replication.role = "master";
-    } else {
-      server.info().replication.role = "slave";
+    auto& info = server.info();
+    info.server.tcp_port = DEFAULT_PORT;
+    info.replication.role = "master";
+    info.replication.master_replid = random_hexstring(40);
+    info.replication.master_repl_offset = 0;
+
+    int arg_pos = 1;
+    while (arg_pos < argc) {
+      if (std::string("--port") == argv[arg_pos]) {
+        if (arg_pos + 1 >= argc) {
+          throw std::runtime_error("--port argument requires argument");
+        }
+
+        info.server.tcp_port = std::atoi(argv[arg_pos + 1]);
+        arg_pos += 2;
+      } else if (std::string("--replicaof") == argv[arg_pos]) {
+        if (arg_pos + 2 >= argc) {
+          throw std::runtime_error("--replicaof argument requires 2 arguments");
+        }
+        
+        info.replication.role = "slave";
+        info.replication.master_host = argv[arg_pos + 1];
+        info.replication.master_port = std::atoi(argv[arg_pos + 2]);
+        arg_pos += 3;
+      } else {
+        std::ostringstream ss;
+        ss << "unxepected argument: " << argv[arg_pos];
+        throw std::runtime_error(ss.str());
+      }
     }
+
+    server.start();
 
     while (true) {
       try {
