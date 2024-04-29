@@ -14,11 +14,22 @@
 std::string ServerInfo::to_string(std::unordered_set<std::string> parts) const {
   std::ostringstream ss;
 
-  for (const auto& part: parts) {
-    if (part == "replication") {
-      ss << this->replication.to_string();
-    }
+  if (parts.contains("server")) {
+    ss << this->server.to_string();
   }
+
+  if (parts.contains("replication")) {
+    ss << this->replication.to_string();
+  }
+
+  return ss.str();
+}
+
+std::string ServerInfo::Server::to_string() const {
+  std::ostringstream ss;
+
+  ss << "#Server" << std::endl;
+  ss << "tcp_port:" << this->tcp_port << std::endl;
 
   return ss.str();
 }

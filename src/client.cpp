@@ -236,6 +236,7 @@ void Client::reply_to_get(const Message& message) {
 }
 
 void insert_info_parts_default(std::unordered_set<std::string>& info_parts) {
+  info_parts.insert("server");
   info_parts.insert("replication");
 }
 

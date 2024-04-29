@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
         arg_pos += 3;
       } else {
         std::ostringstream ss;
-        ss << "unxepected argument: " << argv[arg_pos];
+        ss << "unexpected argument: " << argv[arg_pos];
         throw std::runtime_error(ss.str());
       }
     }

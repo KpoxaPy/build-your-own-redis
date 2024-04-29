@@ -8,6 +8,12 @@
 #include <unordered_set>
 
 struct ServerInfo {
+  struct Server {
+    int tcp_port;
+
+    std::string to_string() const;
+  } server;
+
   struct Replication {
     std::string role;
     std::string master_replid;
@@ -18,10 +24,6 @@ struct ServerInfo {
 
     std::string to_string() const;
   } replication;
-
-  struct Server {
-    int tcp_port;
-  } server;
 
   std::string to_string(std::unordered_set<std::string>) const;
 };
