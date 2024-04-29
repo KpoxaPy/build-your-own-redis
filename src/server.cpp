@@ -10,7 +10,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-Server::Server() {
+Server::Server(Storage& storage)
+  : _storage(storage)
+{
   int server_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
   if (server_fd < 0) {
     throw std::runtime_error("Failed to create server socket");
@@ -56,7 +58,7 @@ std::optional<Client> Server::accept() {
     }
   }
 
-  return std::move(Client(client_fd));
+  return std::move(Client(client_fd, this->_storage));
 }
 
 void Server::close() {

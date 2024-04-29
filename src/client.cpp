@@ -16,16 +16,20 @@ public:
   ConnReset() : std::runtime_error("Conn reset") {}
 };
 
-Client::Client(int fd) {
-  this->_client_fd = fd;
-  this->_begin_time = std::chrono::steady_clock::now();
+Client::Client(int fd, Storage& storage)
+  : _client_fd(fd)
+  , _begin_time(std::chrono::steady_clock::now())
+  , _storage(storage)
+{
 }
 
 Client::~Client() {
   close();
 }
 
-Client::Client(Client&& other) {
+Client::Client(Client&& other)
+  : _storage(other._storage)
+{
   this->_client_fd = std::move(other._client_fd);
   other._client_fd.reset();
 
@@ -41,7 +45,7 @@ Client::ProcessStatus Client::process() {
     while (auto maybe_message = Message::ParseFrom(this->_raw_messages)) {
       const auto& message = maybe_message.value();
 
-      std::cerr << "FROM:" << std::endl << message;
+      std::cerr << "<< FROM" << std::endl << message;
       this->reply_to(message);
     }
   } catch (const ConnReset&) {
@@ -76,6 +80,10 @@ void Client::reply_to(const Message& message) {
     this->reply_to_echo(message);
   } else if (command == "ping") {
     this->reply_to_ping();
+  } else if (command == "set") {
+    this->reply_to_set(message);
+  } else if (command == "get") {
+    this->reply_to_get(message);
   } else {
     this->reply_unknown();
   }
@@ -85,14 +93,14 @@ void Client::reply_to_echo(const Message& message) {
   const auto& data = std::get<std::vector<Message>>(message.getValue());
   if (data.size() != 2) {
     std::ostringstream ss;
-    ss << "ERROR echo command must have 1 argument, recieved " << data.size();
+    ss << "ECHO command must have 1 argument, recieved " << data.size();
     this->send(Message(Message::Type::SimpleError, {ss.str()}));
     return;
   }
 
   if (data[1].type() != Message::Type::BulkString) {
     std::ostringstream ss;
-    ss << "ERROR echo command must have first argument with type BulkString";
+    ss << "ECHO command must have first argument with type BulkString";
     this->send(Message(Message::Type::SimpleError, {ss.str()}));
     return;
   }
@@ -105,8 +113,64 @@ void Client::reply_to_ping() {
   this->send(Message(Message::Type::SimpleString, {"PONG"}));
 }
 
+void Client::reply_to_set(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  if (data.size() < 3) {
+    std::ostringstream ss;
+    ss << "SET command must have at least 2 arguments, recieved " << data.size();
+    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+    return;
+  }
+
+  if (data[1].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "SET command must have first argument with type BulkString";
+    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+    return;
+  }
+
+  if (data[2].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "SET command must have second argument with type BulkString";
+    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+    return;
+  }
+
+  const auto& key = std::get<std::string>(data[1].getValue());
+  const auto& value = std::get<std::string>(data[2].getValue());
+
+  this->_storage.set(key, value);
+  this->send(Message(Message::Type::SimpleString, "OK"));
+}
+
+void Client::reply_to_get(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  if (data.size() < 2) {
+    std::ostringstream ss;
+    ss << "GET command must have at least 1 argument, recieved " << data.size();
+    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+    return;
+  }
+
+  if (data[1].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "GET command must have first argument with type BulkString";
+    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+    return;
+  }
+
+  const auto& key = std::get<std::string>(data[1].getValue());
+
+  if (auto maybe_value = this->_storage.get(key)) {
+    this->send(Message(Message::Type::BulkString, maybe_value.value().get()));
+    return;
+  }
+
+  this->send(Message(Message::Type::BulkString, {}));
+}
+
 void Client::reply_unknown() {
-  this->send(Message(Message::Type::SimpleError, {"ERROR Unknown command"}));
+  this->send(Message(Message::Type::SimpleError, {"Unknown command"}));
 }
 
 void Client::close() {
@@ -163,7 +227,7 @@ std::size_t Client::parse_raw_messages() {
 
 void Client::send(const Message& message) {
   auto str = message.to_string();
-  std::cerr << "TO:" << std::endl;
+  std::cerr << ">> TO" << std::endl;
   std::cerr << str;
   this->send(str);
 }

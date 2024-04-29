@@ -198,13 +198,21 @@ std::string Message::to_string() const {
     ss << ":" << std::get<int>(this->_value) << "\r\n";
   } else if (this->_type == Message::Type::BulkString) {
     const auto& data = std::get<std::string>(this->_value);
-    ss << "$" << data.size() << "\r\n";
-    ss << data << "\r\n";
+    if (data.size() == 0) {
+      ss << "$-1\r\n";
+    } else {
+      ss << "$" << data.size() << "\r\n";
+      ss << data << "\r\n";
+    }
   } else if (this->_type == Message::Type::Array) {
     const auto& elements = std::get<std::vector<Message>>(this->_value);
-    ss << "*" << elements.size() << "\r\n";
-    for (const auto& element: elements) {
-      ss << element;
+    if (elements.size() == 0) {
+      ss << "*-1\r\n";
+    } else {
+      ss << "*" << elements.size() << "\r\n";
+      for (const auto& element : elements) {
+        ss << element;
+      }
     }
   }
   return ss.str();
@@ -221,13 +229,21 @@ std::ostream& operator<<(std::ostream& stream, const Message& message) {
     stream << ":" << std::get<int>(message._value) << std::endl;
   } else if (message._type == Message::Type::BulkString) {
     const auto& data = std::get<std::string>(message._value);
-    stream << "$" << data.size() << std::endl;
-    stream << data << std::endl;
+    if (data.size() == 0) {
+      stream << "$-1" << std::endl;
+    } else {
+      stream << "$" << data.size() << std::endl;
+      stream << data << std::endl;
+    }
   } else if (message._type == Message::Type::Array) {
     const auto& elements = std::get<std::vector<Message>>(message._value);
-    stream << "*" << elements.size() << std::endl;
-    for (const auto& element: elements) {
-      stream << element;
+    if (elements.size() == 0) {
+      stream << "*-1" << std::endl;
+    } else {
+      stream << "*" << elements.size() << std::endl;
+      for (const auto& element : elements) {
+        stream << element;
+      }
     }
   }
   return stream;

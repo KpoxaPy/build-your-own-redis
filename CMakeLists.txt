@@ -9,6 +9,7 @@ set(SOURCE_FILES
     src/request.cpp
     src/response.cpp
     src/server.cpp
+    src/storage.cpp
     src/types.cpp
 )
 

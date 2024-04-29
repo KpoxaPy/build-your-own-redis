@@ -1,11 +1,13 @@
 #include "server.h"
+#include "storage.h"
 
 #include <iostream>
 #include <list>
 
 int main(int argc, char **argv) {
   try {
-    Server server;
+    Storage storage;
+    Server server(storage);
     std::list<Client> clients;
 
     while (true) {

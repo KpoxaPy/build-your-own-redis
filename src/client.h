@@ -1,7 +1,8 @@
 #pragma once
 
-#include "types.h"
 #include "message.h"
+#include "storage.h"
+#include "types.h"
 
 #include <chrono>
 #include <cstddef>
@@ -18,7 +19,7 @@ public:
     Closed,
   };
 
-  Client(int fd);
+  Client(int fd, Storage& storage);
   Client(Client&&);
   ~Client();
 
@@ -29,10 +30,13 @@ private:
   std::chrono::steady_clock::time_point _begin_time;
   RawMessageBuffer _buffer;
   RawMessagesStream _raw_messages;
+  Storage& _storage;
 
   void reply_to(const Message&);
   void reply_to_echo(const Message&);
   void reply_to_ping();
+  void reply_to_set(const Message&);
+  void reply_to_get(const Message&);
   void reply_unknown();
 
   void close();
