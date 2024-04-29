@@ -1,27 +1,20 @@
 #include "client.h"
 
-#include "request.h"
-#include "response.h"
-
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "message.h"
+
 class ConnReset : std::runtime_error {
 public:
   ConnReset() : std::runtime_error("Conn reset") {}
 };
-
-std::ostream& operator<<(std::ostream& stream, Client::RawMessage raw_message) {
-  for (const auto& b: raw_message) {
-    stream << static_cast<char>(b);
-  }
-  return stream;
-}
 
 Client::Client(int fd) {
   this->_client_fd = fd;
@@ -43,26 +36,77 @@ Client::Client(Client&& other) {
 
 Client::ProcessStatus Client::process() {
   try {
-    auto new_messages = this->read();
+    this->read();
 
-    if (new_messages == 0) {
-      if (this->met_new_message) {
-        this->send("+PONG\r\n");
-        this->met_new_message = false;
-      }
-    } else {
-      this->met_new_message = true;
-    }
+    while (auto maybe_message = Message::ParseFrom(this->_raw_messages)) {
+      const auto& message = maybe_message.value();
 
-    while (!this->_raw_messages.empty()) {
-      std::cout << "< " << this->_raw_messages.front() << std::endl;
-      this->_raw_messages.pop();
+      std::cerr << "FROM:" << std::endl << message;
+      this->reply_to(message);
     }
   } catch (const ConnReset&) {
     return ProcessStatus::Closed;
   }
 
   return ProcessStatus::Keep;
+}
+
+void Client::reply_to(const Message& message) {
+  if (message.type() != Message::Type::Array) {
+    this->reply_unknown();
+    return;
+  }
+
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  if (data.size() == 0) {
+    this->reply_unknown();
+    return;
+  }
+
+  if (data[0].type() != Message::Type::BulkString) {
+    this->reply_unknown();
+    return;
+  }
+
+  const std::string& messageStr = std::get<std::string>(data[0].getValue());
+  std::string command = messageStr;
+  std::transform(messageStr.begin(), messageStr.end(), command.begin(), [](unsigned char ch) { return std::tolower(ch); });
+
+  if (command == "echo") {
+    this->reply_to_echo(message);
+  } else if (command == "ping") {
+    this->reply_to_ping();
+  } else {
+    this->reply_unknown();
+  }
+}
+
+void Client::reply_to_echo(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  if (data.size() != 2) {
+    std::ostringstream ss;
+    ss << "ERROR echo command must have 1 argument, recieved " << data.size();
+    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+    return;
+  }
+
+  if (data[1].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "ERROR echo command must have first argument with type BulkString";
+    this->send(Message(Message::Type::SimpleError, {ss.str()}));
+    return;
+  }
+
+  const auto& msg = std::get<std::string>(data[1].getValue());
+  this->send(Message(Message::Type::BulkString, {msg}));
+}
+
+void Client::reply_to_ping() {
+  this->send(Message(Message::Type::SimpleString, {"PONG"}));
+}
+
+void Client::reply_unknown() {
+  this->send(Message(Message::Type::SimpleError, {"ERROR Unknown command"}));
 }
 
 void Client::close() {
@@ -109,7 +153,7 @@ std::size_t Client::parse_raw_messages() {
       break;
     }
 
-    this->_raw_messages.emplace(this->_buffer.begin(), result_it);
+    this->_raw_messages.emplace_back(this->_buffer.begin(), result_it);
     this->_buffer.erase(this->_buffer.begin(), result_it + delim.size());
     ++new_messages;
   }
@@ -117,9 +161,15 @@ std::size_t Client::parse_raw_messages() {
   return new_messages;
 }
 
+void Client::send(const Message& message) {
+  auto str = message.to_string();
+  std::cerr << "TO:" << std::endl;
+  std::cerr << str;
+  this->send(str);
+}
+
 void Client::send(const std::string& str) {
   std::size_t transferred_total = 0;
-  std::cerr << "> " << str << std::endl;
   while (transferred_total < str.size()) {
     ssize_t transferred = write(
       this->_client_fd.value(),

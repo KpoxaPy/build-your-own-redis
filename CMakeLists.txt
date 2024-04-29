@@ -5,9 +5,11 @@ project(redis-starter-cpp)
 set(SOURCE_FILES 
     src/client.cpp
     src/main.cpp
+    src/message.cpp
     src/request.cpp
     src/response.cpp
     src/server.cpp
+    src/types.cpp
 )
 
 set(CMAKE_CXX_STANDARD 23) # Enable the C++23 standard

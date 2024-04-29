@@ -1,10 +1,13 @@
 #pragma once
 
+#include "types.h"
+#include "message.h"
+
 #include <chrono>
 #include <cstddef>
 #include <iostream>
 #include <optional>
-#include <queue>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -22,20 +25,21 @@ public:
   ProcessStatus process();
 
 private:
-  using RawMessage = std::vector<std::byte>;
-  friend std::ostream& operator<<(std::ostream&, Client::RawMessage);
-  using RawMessageBuffer = RawMessage;
-
   std::optional<int> _client_fd;
   std::chrono::steady_clock::time_point _begin_time;
   RawMessageBuffer _buffer;
-  std::queue<RawMessage> _raw_messages;
-  bool met_new_message = false;
+  RawMessagesStream _raw_messages;
+
+  void reply_to(const Message&);
+  void reply_to_echo(const Message&);
+  void reply_to_ping();
+  void reply_unknown();
 
   void close();
 
   std::size_t read();
   std::size_t parse_raw_messages();
 
+  void send(const Message& message);
   void send(const std::string& str);
 };
