@@ -1,13 +1,36 @@
 #include "server.h"
 #include "storage.h"
+#include "utils.h"
 
+#include <cstdlib>
 #include <iostream>
 #include <list>
+#include <sstream>
+
+constexpr const int DEFAULT_PORT = 6379;
 
 int main(int argc, char **argv) {
+  int port = DEFAULT_PORT;
+
+  int arg_pos = 1;
+  while (arg_pos < argc) {
+    if (std::string("--port") == argv[arg_pos]) {
+      if (arg_pos + 1 >= argc) {
+        throw std::runtime_error("--port argument requires argument");
+      }
+
+      port = std::atoi(argv[arg_pos + 1]);
+      arg_pos += 2;
+    } else {
+      std::ostringstream ss;
+      ss << "unxepected argument: " << argv[arg_pos];
+      throw std::runtime_error(ss.str());
+    }
+  }
+
   try {
     Storage storage;
-    Server server(storage);
+    Server server(port, storage);
     std::list<Client> clients;
 
     while (true) {

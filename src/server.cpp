@@ -10,7 +10,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-Server::Server(Storage& storage)
+Server::Server(int port, Storage& storage)
   : _storage(storage)
 {
   int server_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
@@ -28,11 +28,11 @@ Server::Server(Storage& storage)
   struct sockaddr_in server_addr;
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(Server::PORT);
+  server_addr.sin_port = htons(port);
 
   if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
     std::ostringstream ss;
-    ss << "Failed to bind to port " << Server::PORT;
+    ss << "Failed to bind to port " << port;
     throw std::runtime_error(ss.str());
   }
 
