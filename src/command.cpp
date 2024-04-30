@@ -5,6 +5,9 @@
 #include "server.h"
 #include "utils.h"
 
+#include <algorithm>
+#include <iomanip>
+#include <sstream>
 #include <unordered_set>
 
 CommandParseError::CommandParseError(std::string reason)

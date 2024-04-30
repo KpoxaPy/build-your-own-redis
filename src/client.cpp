@@ -5,16 +5,13 @@
 #include "server.h"
 #include "utils.h"
 
-#include <algorithm>
 #include <array>
 #include <cctype>
-#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <unordered_set>
 
 class ConnReset : std::runtime_error {
 public:
