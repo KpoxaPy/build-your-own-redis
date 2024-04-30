@@ -5,6 +5,7 @@
 #include "server.h"
 #include "utils.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <iostream>
