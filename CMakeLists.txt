@@ -4,6 +4,7 @@ project(redis-starter-cpp)
 
 set(SOURCE_FILES 
     src/client.cpp
+    src/command.cpp
     src/main.cpp
     src/message.cpp
     src/request.cpp

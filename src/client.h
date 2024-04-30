@@ -25,7 +25,12 @@ public:
   Client(Client&&);
   ~Client();
 
+  Server& server();
+  Storage& storage();
+
   ProcessStatus process();
+
+  void send(const Message& message);
 
 private:
   std::optional<int> _client_fd;
@@ -35,19 +40,10 @@ private:
   Server& _server;
   Storage& _storage;
 
-  void reply_to(const Message&);
-  void reply_to_echo(const Message&);
-  void reply_to_ping();
-  void reply_to_set(const Message&);
-  void reply_to_get(const Message&);
-  void reply_to_info(const Message&);
-  void reply_unknown();
-
   void close();
 
   std::size_t read();
   std::size_t parse_raw_messages();
 
-  void send(const Message& message);
   void send(const std::string& str);
 };
