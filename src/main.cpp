@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 
     Storage storage;
     Server server(storage, std::move(info));
-    std::list<Client> clients;
+    std::list<Handler> clients;
 
     server.start();
 
@@ -66,10 +66,10 @@ int main(int argc, char **argv) {
         std::cerr << "Clients accepting error: " << e.what() << std::endl;
       }
 
-      std::list<std::list<Client>::iterator> clients_to_cleanup;
+      std::list<std::list<Handler>::iterator> clients_to_cleanup;
       for (auto client_it = clients.begin(); client_it != clients.end(); ++client_it) {
         try {
-          if (client_it->process() == Client::ProcessStatus::Closed) {
+          if (client_it->process() == Handler::ProcessStatus::Closed) {
             clients_to_cleanup.push_back(client_it);
           }
         } catch (std::exception& e) {

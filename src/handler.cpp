@@ -1,4 +1,4 @@
-#include "client.h"
+#include "handler.h"
 
 #include "command.h"
 #include "message.h"
@@ -19,7 +19,7 @@ public:
   ConnReset() : std::runtime_error("Conn reset") {}
 };
 
-Client::Client(int fd, Server& server, Storage& storage)
+Handler::Handler(int fd, Server& server, Storage& storage)
   : _client_fd(fd)
   , _begin_time(std::chrono::steady_clock::now())
   , _server(server)
@@ -27,19 +27,19 @@ Client::Client(int fd, Server& server, Storage& storage)
 {
 }
 
-Client::~Client() {
+Handler::~Handler() {
   close();
 }
 
-Server& Client::server() {
+Server& Handler::server() {
   return this->_server;
 }
 
-Storage& Client::storage() {
+Storage& Handler::storage() {
   return this->_storage;
 }
 
-Client::Client(Client&& other)
+Handler::Handler(Handler&& other)
   : _storage(other._storage)
   , _server(other._server)
 {
@@ -51,7 +51,7 @@ Client::Client(Client&& other)
   this->_raw_messages = std::move(other._raw_messages);
 }
 
-Client::ProcessStatus Client::process() {
+Handler::ProcessStatus Handler::process() {
   try {
     this->read();
 
@@ -74,14 +74,14 @@ Client::ProcessStatus Client::process() {
   return ProcessStatus::Keep;
 }
 
-void Client::close() {
+void Handler::close() {
   if (this->_client_fd) {
     ::close(this->_client_fd.value());
     this->_client_fd.reset();
   }
 }
 
-std::size_t Client::read() {
+std::size_t Handler::read() {
   static constexpr std::size_t READ_BUFFER_SIZE = 1024;
   std::array<std::byte, READ_BUFFER_SIZE> read_buffer;
 
@@ -108,7 +108,7 @@ std::size_t Client::read() {
   return this->parse_raw_messages();
 }
 
-std::size_t Client::parse_raw_messages() {
+std::size_t Handler::parse_raw_messages() {
   size_t new_messages = 0;
 
   const RawMessage delim = {std::byte{'\r'}, std::byte{'\n'}};
@@ -126,14 +126,14 @@ std::size_t Client::parse_raw_messages() {
   return new_messages;
 }
 
-void Client::send(const Message& message) {
+void Handler::send(const Message& message) {
   auto str = message.to_string();
   std::cerr << ">> TO" << std::endl;
   std::cerr << str;
   this->send(str);
 }
 
-void Client::send(const std::string& str) {
+void Handler::send(const std::string& str) {
   std::size_t transferred_total = 0;
   while (transferred_total < str.size()) {
     ssize_t transferred = write(

@@ -14,16 +14,16 @@
 
 class Server;
 
-class Client {
+class Handler {
 public:
   enum class ProcessStatus {
     Keep,
     Closed,
   };
 
-  Client(int fd, Server& server, Storage& storage);
-  Client(Client&&);
-  ~Client();
+  Handler(int fd, Server& server, Storage& storage);
+  Handler(Handler&&);
+  ~Handler();
 
   Server& server();
   Storage& storage();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "client.h"
+#include "handler.h"
 #include "storage.h"
 
 #include <optional>
@@ -34,7 +34,7 @@ public:
   ~Server();
 
   void start();
-  std::optional<Client> accept();
+  std::optional<Handler> accept();
 
   ServerInfo& info();
 

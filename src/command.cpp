@@ -1,6 +1,6 @@
 #include "command.h"
 
-#include "client.h"
+#include "handler.h"
 #include "message.h"
 #include "server.h"
 #include "utils.h"
@@ -47,11 +47,11 @@ CommandPtr Command::try_parse(const Message& message) {
   throw CommandParseError("unknown command");
 }
 
-void Command::send(Client& client) const {
+void Command::send(Handler& client) const {
   client.send(this->construct());
 }
 
-void Command::reply(Client&) const {
+void Command::reply(Handler&) const {
   throw std::runtime_error("Command::reply should not be invoked");
 }
 
@@ -63,7 +63,7 @@ CommandPtr PingCommand::try_parse(const Message&) {
   return std::make_shared<PingCommand>();
 }
 
-void PingCommand::reply(Client& client) const {
+void PingCommand::reply(Handler& client) const {
   client.send(Message(Message::Type::SimpleString, {"PONG"}));
 }
 
@@ -97,7 +97,7 @@ EchoCommand::EchoCommand(std::string data)
 {
 }
 
-void EchoCommand::reply(Client& client) const {
+void EchoCommand::reply(Handler& client) const {
   client.send(Message(Message::Type::BulkString, this->_data));
 }
 
@@ -192,7 +192,7 @@ void SetCommand::setExpireMs(int ms) {
   this->_expire_ms = ms;
 }
 
-void SetCommand::reply(Client& client) const {
+void SetCommand::reply(Handler& client) const {
   client.storage().storage[this->_key] = this->_value;
   Value& stored_value = client.storage().storage[this->_key];
 
@@ -241,7 +241,7 @@ GetCommand::GetCommand(std::string key)
 {
 }
 
-void GetCommand::reply(Client& client) const {
+void GetCommand::reply(Handler& client) const {
   auto it = client.storage().storage.find(this->_key);
   if (it == client.storage().storage.end()) {
     client.send(Message(Message::Type::BulkString, {}));
@@ -296,7 +296,7 @@ void InfoCommand::setInfoPart(std::string info_part) {
   this->_args.emplace_back(std::move(info_part));
 }
 
-void InfoCommand::reply(Client& client) const {
+void InfoCommand::reply(Handler& client) const {
   std::unordered_set<std::string> info_parts;
 
   for (const auto& info_part: this->_args) {

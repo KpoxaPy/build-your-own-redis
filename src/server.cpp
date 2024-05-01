@@ -89,7 +89,7 @@ void Server::start() {
   }
 }
 
-std::optional<Client> Server::accept() {
+std::optional<Handler> Server::accept() {
   struct sockaddr_in client_addr;
   std::size_t client_addr_len = sizeof(client_addr);
 
@@ -102,7 +102,7 @@ std::optional<Client> Server::accept() {
     }
   }
 
-  return std::move(Client(client_fd, *this, this->_storage));
+  return std::move(Handler(client_fd, *this, this->_storage));
 }
 
 ServerInfo& Server::info() {

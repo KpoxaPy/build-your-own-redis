@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-class Client;
+class Handler;
 
 class CommandParseError : public std::runtime_error {
 public:
@@ -21,8 +21,8 @@ class Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  virtual void send(Client&) const;
-  virtual void reply(Client&) const;
+  virtual void send(Handler&) const;
+  virtual void reply(Handler&) const;
 
   virtual Message construct() const;
 };
@@ -31,7 +31,7 @@ class PingCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  void reply(Client&) const override;
+  void reply(Handler&) const override;
 
   Message construct() const override;
 };
@@ -42,7 +42,7 @@ public:
 
   EchoCommand(std::string);
 
-  void reply(Client&) const override;
+  void reply(Handler&) const override;
 
   Message construct() const override;
 
@@ -57,7 +57,7 @@ public:
   SetCommand(std::string key, std::string value);
   void setExpireMs(int);
 
-  void reply(Client&) const override;
+  void reply(Handler&) const override;
 
   Message construct() const override;
 
@@ -73,7 +73,7 @@ public:
 
   GetCommand(std::string key);
 
-  void reply(Client&) const override;
+  void reply(Handler&) const override;
 
   Message construct() const override;
 
@@ -89,7 +89,7 @@ public:
 
   void setInfoPart(std::string);
 
-  void reply(Client&) const override;
+  void reply(Handler&) const override;
 
   Message construct() const override;
 
