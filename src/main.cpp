@@ -15,6 +15,7 @@ int main(int argc, char **argv) {
 
     poller.start(event_loop);
     server.start(event_loop);
+
     event_loop->start();
 
     return 0;

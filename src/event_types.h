@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
+#include <unordered_set>
 
 using EventDescriptor = std::size_t;
 
@@ -20,27 +22,42 @@ public:
 protected:
   EventDescriptor _descriptor = EventUndefined;
 };
+using EventPtr = std::unique_ptr<Event>;
+
+enum class PollEventType {
+  ReadyToRead,
+  ReadyToWrite,
+  HangUp,
+  Error,
+  InvalidFD,
+};
 
 class PollAddEvent : public Event {
 public:
-  PollAddEvent(int fd, short flags, EventDescriptor expected_descriptor);
+  static EventPtr make(int fd, std::unordered_set<PollEventType> types, EventDescriptor expected_descriptor);
+
+  PollAddEvent(int fd, std::unordered_set<PollEventType> types, EventDescriptor expected_descriptor);
 
   int fd;
-  short flags;
+  std::unordered_set<PollEventType> types;
   EventDescriptor expected_descriptor;
 };
 
 class PollRemoveEvent : public Event {
 public:
+  static EventPtr make(int fd);
+
   PollRemoveEvent(int fd);
 
   int fd;
 };
 
-class PollReadyEvent : public Event {
+class PollEvent : public Event {
 public:
-  PollReadyEvent(EventDescriptor, int fd, short events);
+  static EventPtr make(EventDescriptor, int fd, PollEventType);
+
+  PollEvent(EventDescriptor, int fd, PollEventType);
 
   int fd;
-  short events;
+  PollEventType type;
 };

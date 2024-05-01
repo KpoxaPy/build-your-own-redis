@@ -133,7 +133,15 @@ void Server::start(EventLoopManagerPtr event_loop) {
     throw std::runtime_error("Listen failed");
   }
 
-  _event_loop->repeat([this]() {
+  auto accept_descriptor = _event_loop->make_desciptor();
+  this->_event_loop->listen(accept_descriptor, [this](const Event& event) {
+    auto& poll_event = static_cast<const PollEvent&>(event);
+
+    if (poll_event.type != PollEventType::ReadyToRead) {
+      throw std::runtime_error("Server got unexpected poll event");
+      // TODO make error more verbose
+    }
+
     try {
       while (auto maybe_client = this->accept()) {
         this->_handlers.push_back(std::move(maybe_client.value()));
@@ -141,7 +149,10 @@ void Server::start(EventLoopManagerPtr event_loop) {
     } catch (std::exception& e) {
       std::cerr << "Client accepting error: " << e.what() << std::endl;
     }
+  });
+  this->_event_loop->post(PollAddEvent::make(*this->_server_fd, {PollEventType::ReadyToRead}, accept_descriptor));
 
+  this->_event_loop->repeat([this]() {
     std::list<std::list<Handler>::iterator> handler_to_cleanup;
     for (auto handler_it = this->_handlers.begin(); handler_it != this->_handlers.end(); ++handler_it) {
       try {
@@ -163,16 +174,18 @@ std::optional<Handler> Server::accept() {
   struct sockaddr_in client_addr;
   std::size_t client_addr_len = sizeof(client_addr);
 
-  int client_fd = ::accept(*this->_server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
-  if (client_fd < 0) {
+  int accept_res = ::accept(*this->_server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+  if (accept_res < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
       return {};
     } else {
-      throw std::runtime_error("Failed to accept new connection");
+      std::ostringstream ss;
+      ss << "Server got error on accept: errno=" << errno;
+      throw std::runtime_error(ss.str());
     }
   }
 
-  return std::move(Handler(client_fd, *this, this->_storage));
+  return std::move(Handler(accept_res, *this, this->_storage));
 }
 
 ServerInfo& Server::info() {
