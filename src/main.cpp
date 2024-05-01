@@ -15,11 +15,11 @@ int main(int argc, char **argv) {
 
     poller.start(event_loop);
     server.start(event_loop);
-    event_loop->start_loop();
+    event_loop->start();
 
     return 0;
   } catch (std::exception& e) {
-    std::cerr << "Error: " << e.what() << std::endl;
+    std::cerr << "Terminate, main caught exception: " << std::endl << e.what() << std::endl;
 
     return 1;
   }

@@ -5,6 +5,7 @@ project(redis-starter-cpp)
 set(SOURCE_FILES 
     src/command.cpp
     src/events.cpp
+    src/event_types.cpp
     src/handler.cpp
     src/main.cpp
     src/message.cpp

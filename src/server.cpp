@@ -133,7 +133,7 @@ void Server::start(EventLoopManagerPtr event_loop) {
     throw std::runtime_error("Listen failed");
   }
 
-  _event_loop->post([this]() mutable {
+  _event_loop->repeat([this]() {
     try {
       while (auto maybe_client = this->accept()) {
         this->_handlers.push_back(std::move(maybe_client.value()));
@@ -156,7 +156,7 @@ void Server::start(EventLoopManagerPtr event_loop) {
     for (auto& handler_it: handler_to_cleanup) {
       this->_handlers.erase(handler_it);
     }
-  }, EventLoopManager::Repeat);
+  });
 }
 
 std::optional<Handler> Server::accept() {

@@ -1,29 +1,43 @@
 #pragma once
 
-#include <memory>
+#include "event_types.h"
+
 #include <functional>
 #include <list>
+#include <memory>
 #include <queue>
+#include <unordered_map>
+#include <utility>
 
 class EventLoopManager;
 using EventLoopManagerPtr = std::shared_ptr<EventLoopManager>;
 
 class EventLoopManager {
 public:
-  enum RunType {
-    Once,
-    Repeat,
-  };
+  using RepeatingFunc = std::function<void()>;
+  using EventFunc = std::function<void(const Event&)>;
 
-  using Func = std::function<void()>;
+  static constexpr std::size_t MAX_UNQUEUE_EVENTS_DEFAULT = -1;
 
   static EventLoopManagerPtr make();
 
-  void post(Func, RunType type = Once, std::string name = {});
+  EventLoopManager(std::size_t max_unqueue_events = MAX_UNQUEUE_EVENTS_DEFAULT);
 
-  void start_loop();
+  EventDescriptor make_desciptor();
+
+  void repeat(RepeatingFunc);
+
+  void listen(EventDescriptor descriptor, EventFunc);
+
+  void post(Event);
+
+  void start();
 
 private:
-  std::list<Func> _repeated_events;
-  std::queue<Func> _events;
+  EventDescriptor _last = EventLast;
+  std::list<RepeatingFunc> _repeated_jobs;
+  std::unordered_map<EventDescriptor, std::list<EventFunc>> _listeners;
+
+  const std::size_t _max_unqueue_events;
+  std::queue<Event> _events;
 };
