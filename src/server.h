@@ -10,6 +10,8 @@
 #include <unordered_set>
 
 struct ServerInfo {
+  static ServerInfo build(std::size_t argc, char** argv);
+
   struct Server {
     int tcp_port;
 

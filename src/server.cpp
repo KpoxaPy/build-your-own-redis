@@ -1,5 +1,7 @@
 #include "server.h"
 
+#include "utils.h"
+
 #include <arpa/inet.h>
 #include <cstdlib>
 #include <cstring>
@@ -12,6 +14,45 @@
 
 
 constexpr const int CONN_BACKLOG = 5;
+constexpr const int DEFAULT_PORT = 6379;
+
+
+
+ServerInfo ServerInfo::build(std::size_t argc, char** argv) {
+  ServerInfo info;
+
+  info.server.tcp_port = DEFAULT_PORT;
+  info.replication.role = "master";
+  info.replication.master_replid = random_hexstring(40);
+  info.replication.master_repl_offset = 0;
+
+  int arg_pos = 1;
+  while (arg_pos < argc) {
+    if (std::string("--port") == argv[arg_pos]) {
+      if (arg_pos + 1 >= argc) {
+        throw std::runtime_error("--port argument requires argument");
+      }
+
+      info.server.tcp_port = std::atoi(argv[arg_pos + 1]);
+      arg_pos += 2;
+    } else if (std::string("--replicaof") == argv[arg_pos]) {
+      if (arg_pos + 2 >= argc) {
+        throw std::runtime_error("--replicaof argument requires 2 arguments");
+      }
+      
+      info.replication.role = "slave";
+      info.replication.master_host = argv[arg_pos + 1];
+      info.replication.master_port = std::atoi(argv[arg_pos + 2]);
+      arg_pos += 3;
+    } else {
+      std::ostringstream ss;
+      ss << "unexpected argument: " << argv[arg_pos];
+      throw std::runtime_error(ss.str());
+    }
+  }
+
+  return info;
+}
 
 std::string ServerInfo::to_string(std::unordered_set<std::string> parts) const {
   std::ostringstream ss;
