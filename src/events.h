@@ -17,9 +17,7 @@ public:
 
   using Func = std::function<void()>;
 
-  static EventLoopManagerPtr make() {
-    return std::make_shared<EventLoopManager>();
-  }
+  static EventLoopManagerPtr make();
 
   void post(Func, RunType type = Once, std::string name = {});
 

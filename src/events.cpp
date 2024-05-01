@@ -1,5 +1,9 @@
 #include "events.h"
 
+EventLoopManagerPtr EventLoopManager::make() {
+  return std::make_shared<EventLoopManager>();
+}
+
 void EventLoopManager::post(Func func, RunType type, std::string name) {
   if (type == Once) {
     this->_events.emplace(std::move(func));

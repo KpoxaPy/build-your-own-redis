@@ -1,8 +1,10 @@
 #pragma once
 
+#include "events.h"
 #include "handler.h"
 #include "storage.h"
 
+#include <list>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -33,16 +35,19 @@ public:
   Server(Storage& storage, ServerInfo info = {});
   ~Server();
 
-  void start();
+  void start(EventLoopManagerPtr event_loop);
   std::optional<Handler> accept();
 
   ServerInfo& info();
 
 private:
-  static constexpr int CONN_BACKLOG = 5;
-  std::optional<int> _server_fd;
   Storage& _storage;
   ServerInfo _info;
+
+  EventLoopManagerPtr _event_loop;
+  std::optional<int> _server_fd;
+
+  std::list<Handler> _handlers;
 
   void close();
 };

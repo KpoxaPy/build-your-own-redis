@@ -8,6 +8,7 @@ set(SOURCE_FILES
     src/handler.cpp
     src/main.cpp
     src/message.cpp
+    src/poller.cpp
     src/server.cpp
     src/storage.cpp
     src/types.cpp

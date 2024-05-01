@@ -11,6 +11,8 @@
 #include <unistd.h>
 
 
+constexpr const int CONN_BACKLOG = 5;
+
 std::string ServerInfo::to_string(std::unordered_set<std::string> parts) const {
   std::ostringstream ss;
 
@@ -60,7 +62,9 @@ Server::~Server() {
   this->close();
 }
 
-void Server::start() {
+void Server::start(EventLoopManagerPtr event_loop) {
+  this->_event_loop = event_loop;
+
   int server_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
   if (server_fd < 0) {
     throw std::runtime_error("Failed to create server socket");
@@ -84,9 +88,34 @@ void Server::start() {
     throw std::runtime_error(ss.str());
   }
 
-  if (listen(*this->_server_fd, Server::CONN_BACKLOG) != 0) {
+  if (listen(*this->_server_fd, CONN_BACKLOG) != 0) {
     throw std::runtime_error("Listen failed");
   }
+
+  _event_loop->post([this]() mutable {
+    try {
+      while (auto maybe_client = this->accept()) {
+        this->_handlers.push_back(std::move(maybe_client.value()));
+      }
+    } catch (std::exception& e) {
+      std::cerr << "Client accepting error: " << e.what() << std::endl;
+    }
+
+    std::list<std::list<Handler>::iterator> handler_to_cleanup;
+    for (auto handler_it = this->_handlers.begin(); handler_it != this->_handlers.end(); ++handler_it) {
+      try {
+        if (handler_it->process() == Handler::ProcessStatus::Closed) {
+          handler_to_cleanup.push_back(handler_it);
+        }
+      } catch (std::exception& e) {
+        std::cerr << "Client processing error: " << e.what() << std::endl;
+      }
+    }
+
+    for (auto& handler_it: handler_to_cleanup) {
+      this->_handlers.erase(handler_it);
+    }
+  }, EventLoopManager::Repeat);
 }
 
 std::optional<Handler> Server::accept() {

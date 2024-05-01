@@ -1,11 +1,11 @@
 #include "events.h"
+#include "poller.h"
 #include "server.h"
 #include "storage.h"
 #include "utils.h"
 
 #include <cstdlib>
 #include <iostream>
-#include <list>
 #include <sstream>
 
 constexpr const int DEFAULT_PORT = 6379;
@@ -48,39 +48,13 @@ ServerInfo setup_info(int argc, char **argv) {
 int main(int argc, char **argv) {
   try {
     auto info = setup_info(argc, argv);
-
     auto event_loop = EventLoopManager::make();
-
     Storage storage;
+    Poller poller;
     Server server(storage, std::move(info));
-    std::list<Handler> clients;
 
-    server.start();
-
-    event_loop->post([&server, &clients](){
-      try {
-        while (auto maybe_client = server.accept()) {
-          clients.push_back(std::move(maybe_client.value()));
-        }
-      } catch (std::exception& e) {
-        std::cerr << "Clients accepting error: " << e.what() << std::endl;
-      }
-
-      std::list<std::list<Handler>::iterator> clients_to_cleanup;
-      for (auto client_it = clients.begin(); client_it != clients.end(); ++client_it) {
-        try {
-          if (client_it->process() == Handler::ProcessStatus::Closed) {
-            clients_to_cleanup.push_back(client_it);
-          }
-        } catch (std::exception& e) {
-          std::cerr << "Client processing error: " << e.what() << std::endl;
-        }
-      }
-
-      for (auto& client_it: clients_to_cleanup) {
-        clients.erase(client_it);
-      }
-    }, EventLoopManager::Repeat);
+    poller.start(event_loop);
+    server.start(event_loop);
     event_loop->start_loop();
 
     return 0;
