@@ -50,8 +50,9 @@ std::string ServerInfo::Replication::to_string() const {
   return ss.str();
 }
 
-Server::Server(Storage& storage)
+Server::Server(Storage& storage, ServerInfo info)
   : _storage(storage)
+  , _info(std::move(info))
 {
 }
 

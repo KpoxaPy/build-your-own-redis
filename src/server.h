@@ -30,7 +30,7 @@ struct ServerInfo {
 
 class Server {
 public:
-  Server(Storage& storage);
+  Server(Storage& storage, ServerInfo info = {});
   ~Server();
 
   void start();
