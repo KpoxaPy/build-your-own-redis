@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <netdb.h>
 #include <sstream>
 #include <stdexcept>
@@ -93,10 +94,8 @@ std::string ServerInfo::Replication::to_string() const {
   return ss.str();
 }
 
-Server::Server(Storage& storage, ServerInfo info)
-  : _storage(storage)
-  , _info(std::move(info))
-{
+Server::Server(ServerInfo info)
+    : _info(std::move(info)) {
 }
 
 Server::~Server() {
@@ -143,38 +142,21 @@ void Server::start(EventLoopManagerPtr event_loop) {
     }
 
     try {
-      while (auto maybe_client = this->accept()) {
-        this->_handlers.push_back(std::move(maybe_client.value()));
+      while (auto maybe_client_fd = this->accept()) {
+        this->_event_loop->post(HandlerAddEvent::make(maybe_client_fd.value()));
       }
     } catch (std::exception& e) {
       std::cerr << "Client accepting error: " << e.what() << std::endl;
     }
   });
-  this->_event_loop->post(PollAddEvent::make(*this->_server_fd, {PollEventType::ReadyToRead}, accept_descriptor));
-
-  this->_event_loop->repeat([this]() {
-    std::list<std::list<Handler>::iterator> handler_to_cleanup;
-    for (auto handler_it = this->_handlers.begin(); handler_it != this->_handlers.end(); ++handler_it) {
-      try {
-        if (handler_it->process() == Handler::ProcessStatus::Closed) {
-          handler_to_cleanup.push_back(handler_it);
-        }
-      } catch (std::exception& e) {
-        std::cerr << "Client processing error: " << e.what() << std::endl;
-      }
-    }
-
-    for (auto& handler_it: handler_to_cleanup) {
-      this->_handlers.erase(handler_it);
-    }
-  });
+  this->_event_loop->post(PollAddEvent::make(this->_server_fd.value(), {PollEventType::ReadyToRead}, accept_descriptor));
 }
 
-std::optional<Handler> Server::accept() {
+std::optional<int> Server::accept() {
   struct sockaddr_in client_addr;
   std::size_t client_addr_len = sizeof(client_addr);
 
-  int accept_res = ::accept(*this->_server_fd, (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
+  int accept_res = ::accept(this->_server_fd.value(), (struct sockaddr *)&client_addr, (socklen_t *)&client_addr_len);
   if (accept_res < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
       return {};
@@ -185,7 +167,7 @@ std::optional<Handler> Server::accept() {
     }
   }
 
-  return std::move(Handler(accept_res, *this, this->_storage));
+  return accept_res;
 }
 
 ServerInfo& Server::info() {
@@ -194,6 +176,7 @@ ServerInfo& Server::info() {
 
 void Server::close() {
   if (this->_server_fd) {
+    this->_event_loop->post(PollRemoveEvent::make(this->_server_fd.value()));
     ::close(this->_server_fd.value());
     this->_server_fd.reset();
   }

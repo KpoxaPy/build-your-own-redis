@@ -30,3 +30,21 @@ PollEvent::PollEvent(EventDescriptor descriptor, int fd, PollEventType type)
     : fd(fd), type(type) {
   this->_descriptor = descriptor;
 }
+
+EventPtr HandlerAddEvent::make(int fd) {
+  return std::make_unique<HandlerAddEvent>(fd);
+}
+
+HandlerAddEvent::HandlerAddEvent(int fd)
+  : fd(fd) {
+  this->_descriptor = EventHandlerAdd;
+}
+
+EventPtr HandlerRemoveEvent::make(int fd) {
+  return std::make_unique<HandlerRemoveEvent>(fd);
+}
+
+HandlerRemoveEvent::HandlerRemoveEvent(int fd)
+  : fd(fd) {
+  this->_descriptor = EventHandlerRemove;
+}

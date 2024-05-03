@@ -12,6 +12,9 @@ enum : EventDescriptor {
   EventPollerAdd,
   EventPollerRemove,
 
+  EventHandlerAdd,
+  EventHandlerRemove,
+
   EventLast,
 };
 
@@ -60,4 +63,22 @@ public:
 
   int fd;
   PollEventType type;
+};
+
+class HandlerAddEvent : public Event {
+public:
+  static EventPtr make(int fd);
+
+  HandlerAddEvent(int fd);
+
+  int fd;
+};
+
+class HandlerRemoveEvent : public Event {
+public:
+  static EventPtr make(int fd);
+
+  HandlerRemoveEvent(int fd);
+
+  int fd;
 };

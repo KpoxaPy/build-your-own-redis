@@ -52,7 +52,7 @@ void Poller::start(EventLoopManagerPtr event_loop) {
 
     auto& handler = it->second;
     this->_fds[handler.pos_in_fds].fd = -1; // ignore this socket in polling
-    // todo make cleanup process, running periodically
+    // TODO make cleanup process, running periodically
     this->_handlers.erase(remove_event.fd);
   });
 

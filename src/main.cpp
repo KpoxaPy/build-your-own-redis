@@ -2,19 +2,25 @@
 #include "poller.h"
 #include "server.h"
 #include "storage.h"
+#include "handlers_manager.h"
 
 #include <iostream>
 
 int main(int argc, char **argv) {
   try {
-    auto info = ServerInfo::build(argc, argv);
     auto event_loop = EventLoopManager::make();
-    Storage storage;
-    Poller poller;
-    Server server(storage, std::move(info));
+    auto poller = Poller::make();
+    auto storage = Storage::make();
+    auto handlers_manager = HandlersManager::make();
+    auto server = Server::make(ServerInfo::build(argc, argv));
 
-    poller.start(event_loop);
-    server.start(event_loop);
+    handlers_manager->set_server(server);
+    handlers_manager->set_storage(storage);
+
+    poller->start(event_loop);
+    storage->start(event_loop);
+    handlers_manager->start(event_loop);
+    server->start(event_loop);
 
     event_loop->start();
 

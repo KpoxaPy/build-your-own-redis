@@ -1,10 +1,9 @@
 #pragma once
 
 #include "events.h"
-#include "handler.h"
 #include "storage.h"
 
-#include <list>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -32,24 +31,29 @@ struct ServerInfo {
   std::string to_string(std::unordered_set<std::string>) const;
 };
 
+class Server;
+using ServerPtr = std::shared_ptr<Server>;
 class Server {
 public:
-  Server(Storage& storage, ServerInfo info = {});
+  template <typename ...Args>
+  static ServerPtr make(Args&& ...args) {
+    return std::make_shared<Server>(std::forward<Args&&>(args)...);
+  }
+
+  Server(ServerInfo info = {});
   ~Server();
 
   void start(EventLoopManagerPtr event_loop);
-  std::optional<Handler> accept();
 
   ServerInfo& info();
 
 private:
-  Storage& _storage;
   ServerInfo _info;
 
   EventLoopManagerPtr _event_loop;
   std::optional<int> _server_fd;
 
-  std::list<Handler> _handlers;
+  std::optional<int> accept();
 
   void close();
 };

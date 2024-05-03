@@ -1,6 +1,9 @@
 #pragma once
 
+#include "events.h"
+
 #include <chrono>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -23,7 +26,16 @@ private:
   std::optional<Timepoint> _expire_time;
 };
 
+class Storage;
+using StoragePtr = std::shared_ptr<Storage>;
 class Storage {
 public:
+  static StoragePtr make();
+
   std::unordered_map<std::string, Value> storage;
+
+  void start(EventLoopManagerPtr event_loop);
+
+private:
+  EventLoopManagerPtr _event_loop;
 };

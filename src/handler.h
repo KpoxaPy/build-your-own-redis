@@ -1,18 +1,15 @@
 #pragma once
 
-#include "message.h"
+#include "events.h"
+// #include "message.h"
 #include "storage.h"
-#include "types.h"
 
-#include <chrono>
-#include <cstddef>
-#include <iostream>
 #include <optional>
 #include <deque>
 #include <string>
-#include <vector>
 
-class Server;
+class HandlersManager;
+class Message;
 
 class Handler {
 public:
@@ -21,29 +18,33 @@ public:
     Closed,
   };
 
-  Handler(int fd, Server& server, Storage& storage);
+  Handler(int fd, HandlersManager& manager);
   Handler(Handler&&);
   ~Handler();
 
-  Server& server();
-  Storage& storage();
+  void start(EventLoopManagerPtr event_loop);
+  // ProcessStatus process();
 
-  ProcessStatus process();
-
-  void send(const Message& message);
 
 private:
-  std::optional<int> _client_fd;
-  std::chrono::steady_clock::time_point _begin_time;
-  RawMessageBuffer _buffer;
-  RawMessagesStream _raw_messages;
-  Server& _server;
-  Storage& _storage;
+  using RawMessageBuffer = std::deque<char>;
 
+  std::optional<int> _client_fd;
+  HandlersManager& _manager;
+  EventLoopManagerPtr _event_loop;
+
+  RawMessageBuffer _read_buffer;
+  RawMessageBuffer _write_buffer;
+
+  EventDescriptor _handler_desciptor;
+
+  void setup_poll(bool write = false);
   void close();
 
-  std::size_t read();
-  std::size_t parse_raw_messages();
+  void read();
+  // std::size_t parse_raw_messages();
 
+  void write();
+  // void send(const Message& message);
   void send(const std::string& str);
 };
