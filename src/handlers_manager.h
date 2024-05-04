@@ -18,6 +18,9 @@ public:
 
   void start(EventLoopManagerPtr event_loop);
 
+  ServerPtr server();
+  StoragePtr storage();
+
 private:
   EventLoopManagerPtr _event_loop;
   ServerPtr _server;

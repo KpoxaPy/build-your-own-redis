@@ -13,6 +13,15 @@ public:
   CommandParseError(std::string);
 };
 
+enum class CommandType {
+  Unknown,
+  Ping,
+  Echo,
+  Set,
+  Get,
+  Info
+};
+
 class Command;
 using CommandPtr = std::shared_ptr<Command>;
 
@@ -23,11 +32,18 @@ public:
   virtual ~Command() = default;
 
   virtual Message construct() const;
+
+  CommandType type() const;
+
+protected:
+  CommandType _type;
 };
 
 class PingCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
+
+  PingCommand();
 
   Message construct() const override;
 };

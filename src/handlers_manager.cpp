@@ -28,6 +28,14 @@ void HandlersManager::start(EventLoopManagerPtr event_loop) {
   });
 }
 
+ServerPtr HandlersManager::server() {
+  return this->_server;
+}
+
+StoragePtr HandlersManager::storage() {
+  return this->_storage;
+}
+
 void HandlersManager::add(int fd) {
   if (this->_handlers.contains(fd)) {
     throw std::runtime_error("Re-adding client fd to handlers manager is not allowed!");

@@ -2,6 +2,7 @@
 
 #include "events.h"
 #include "message_parser.h"
+#include "command.h"
 
 #include <optional>
 #include <deque>
@@ -40,6 +41,7 @@ private:
 
   void process();
   void read();
+  void reply(CommandPtr);
 
   void write();
   void send(const Message& message);
