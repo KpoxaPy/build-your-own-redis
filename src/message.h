@@ -1,6 +1,5 @@
 #pragma once
 
-#include <deque>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -19,8 +18,6 @@ public:
   };
 
   using ValueType = std::variant<std::string, int, std::vector<Message>>;
-
-  static std::optional<Message> ParseFrom(RawMessagesStream&);
 
   Message(Type type, ValueType value = {});
 

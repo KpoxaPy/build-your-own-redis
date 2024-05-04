@@ -1,13 +1,12 @@
 #pragma once
 
-#include "message.h"
-
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
-class Handler;
+class Message;
 
 class CommandParseError : public std::runtime_error {
 public:
@@ -21,8 +20,7 @@ class Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  virtual void send(Handler&) const;
-  virtual void reply(Handler&) const;
+  virtual ~Command() = default;
 
   virtual Message construct() const;
 };
@@ -30,8 +28,6 @@ public:
 class PingCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
-
-  void reply(Handler&) const override;
 
   Message construct() const override;
 };
@@ -42,7 +38,7 @@ public:
 
   EchoCommand(std::string);
 
-  void reply(Handler&) const override;
+  const std::string& data() const;
 
   Message construct() const override;
 
@@ -54,10 +50,10 @@ class SetCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  SetCommand(std::string key, std::string value);
-  void setExpireMs(int);
-
-  void reply(Handler&) const override;
+  SetCommand(std::string key, std::string value, std::optional<int> expire_ms);
+  const std::string& key() const;
+  const std::string& value() const;
+  const std::optional<int>& expire_ms() const;
 
   Message construct() const override;
 
@@ -73,7 +69,7 @@ public:
 
   GetCommand(std::string key);
 
-  void reply(Handler&) const override;
+  const std::string& key() const;
 
   Message construct() const override;
 
@@ -85,11 +81,9 @@ class InfoCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  InfoCommand() = default;
+  InfoCommand(std::vector<std::string> args = {});
 
-  void setInfoPart(std::string);
-
-  void reply(Handler&) const override;
+  const std::vector<std::string>& args() const;
 
   Message construct() const override;
 

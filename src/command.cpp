@@ -1,8 +1,6 @@
 #include "command.h"
 
-#include "handler.h"
 #include "message.h"
-#include "server.h"
 #include "utils.h"
 
 #include <algorithm>
@@ -47,14 +45,6 @@ CommandPtr Command::try_parse(const Message& message) {
   throw CommandParseError("unknown command");
 }
 
-void Command::send(Handler& client) const {
-  client.send(this->construct());
-}
-
-void Command::reply(Handler&) const {
-  throw std::runtime_error("Command::reply should not be invoked");
-}
-
 Message Command::construct() const {
   throw std::runtime_error("Command::construct should not be invoked");
 }
@@ -63,9 +53,9 @@ CommandPtr PingCommand::try_parse(const Message&) {
   return std::make_shared<PingCommand>();
 }
 
-void PingCommand::reply(Handler& client) const {
-  client.send(Message(Message::Type::SimpleString, {"PONG"}));
-}
+// void PingCommand::reply(Handler& client) const {
+//   client.send(Message(Message::Type::SimpleString, {"PONG"}));
+// }
 
 Message PingCommand::construct() const {
   std::vector<Message> parts;
@@ -93,13 +83,16 @@ CommandPtr EchoCommand::try_parse(const Message& message) {
 }
 
 EchoCommand::EchoCommand(std::string data)
-  : _data(data)
-{
+    : _data(std::move(data)) {
 }
 
-void EchoCommand::reply(Handler& client) const {
-  client.send(Message(Message::Type::BulkString, this->_data));
+const std::string& EchoCommand::data() const {
+  return this->_data;
 }
+
+// void EchoCommand::reply(Handler& client) const {
+//   client.send(Message(Message::Type::BulkString, this->_data));
+// }
 
 Message EchoCommand::construct() const {
   std::vector<Message> parts;
@@ -173,35 +166,38 @@ CommandPtr SetCommand::try_parse(const Message& message) {
     throw CommandParseError("not enough arguments");
   }
 
-  auto command = std::make_shared<SetCommand>(key.value(), value.value());
-
-  if (expire_ms) {
-    command->setExpireMs(expire_ms.value());
-  }
-
-  return command;
+  return std::make_shared<SetCommand>(key.value(), value.value(), expire_ms);
 }
 
-SetCommand::SetCommand(std::string key, std::string value)
+SetCommand::SetCommand(std::string key, std::string value, std::optional<int> expire_ms)
   : _key(key)
   , _value(value)
+  , _expire_ms(expire_ms)
 {
 }
 
-void SetCommand::setExpireMs(int ms) {
-  this->_expire_ms = ms;
+const std::string& SetCommand::key() const {
+  return this->_key;
 }
 
-void SetCommand::reply(Handler& client) const {
-  client.storage().storage[this->_key] = this->_value;
-  Value& stored_value = client.storage().storage[this->_key];
-
-  if (this->_expire_ms) {
-    stored_value.setExpire(std::chrono::milliseconds{this->_expire_ms.value()});
-  }
-
-  client.send(Message(Message::Type::SimpleString, "OK"));
+const std::string& SetCommand::value() const {
+  return this->_value;
 }
+
+const std::optional<int>& SetCommand::expire_ms() const {
+  return this->_expire_ms;
+}
+
+// void SetCommand::reply(Handler& client) const {
+//   client.storage().storage[this->_key] = this->_value;
+//   Value& stored_value = client.storage().storage[this->_key];
+
+//   if (this->_expire_ms) {
+//     stored_value.setExpire(std::chrono::milliseconds{this->_expire_ms.value()});
+//   }
+
+//   client.send(Message(Message::Type::SimpleString, "OK"));
+// }
 
 Message SetCommand::construct() const {
   std::vector<Message> parts;
@@ -241,22 +237,26 @@ GetCommand::GetCommand(std::string key)
 {
 }
 
-void GetCommand::reply(Handler& client) const {
-  auto it = client.storage().storage.find(this->_key);
-  if (it == client.storage().storage.end()) {
-    client.send(Message(Message::Type::BulkString, {}));
-    return;
-  }
-  auto& value = it->second;
-
-  if (value.getExpire() && Clock::now() >= value.getExpire()) {
-    client.storage().storage.erase(this->_key);
-    client.send(Message(Message::Type::BulkString, {}));
-    return;
-  }
-
-  client.send(Message(Message::Type::BulkString, value.data()));
+const std::string& GetCommand::key() const {
+  return this->_key;
 }
+
+// void GetCommand::reply(Handler& client) const {
+//   auto it = client.storage().storage.find(this->_key);
+//   if (it == client.storage().storage.end()) {
+//     client.send(Message(Message::Type::BulkString, {}));
+//     return;
+//   }
+//   auto& value = it->second;
+
+//   if (value.getExpire() && Clock::now() >= value.getExpire()) {
+//     client.storage().storage.erase(this->_key);
+//     client.send(Message(Message::Type::BulkString, {}));
+//     return;
+//   }
+
+//   client.send(Message(Message::Type::BulkString, value.data()));
+// }
 
 Message GetCommand::construct() const {
   std::vector<Message> parts;
@@ -266,11 +266,6 @@ Message GetCommand::construct() const {
 }
 
 
-
-void insert_info_parts_default(std::unordered_set<std::string>& info_parts) {
-  info_parts.insert("server");
-  info_parts.insert("replication");
-}
 
 CommandPtr InfoCommand::try_parse(const Message& message) {
   const auto& data = std::get<std::vector<Message>>(message.getValue());
@@ -284,7 +279,7 @@ CommandPtr InfoCommand::try_parse(const Message& message) {
 
     std::string info_part = std::get<std::string>(data[data_pos].getValue());
     std::transform(info_part.begin(), info_part.end(), info_part.begin(), [](unsigned char ch) { return std::tolower(ch); });
-    command->setInfoPart(info_part);
+    command->_args.emplace_back(std::move(info_part));
 
     data_pos += 1;
   }
@@ -292,27 +287,36 @@ CommandPtr InfoCommand::try_parse(const Message& message) {
   return command;
 }
 
-void InfoCommand::setInfoPart(std::string info_part) {
-  this->_args.emplace_back(std::move(info_part));
+InfoCommand::InfoCommand(std::vector<std::string> args)
+  : _args(std::move(args)) {
 }
 
-void InfoCommand::reply(Handler& client) const {
-  std::unordered_set<std::string> info_parts;
-
-  for (const auto& info_part: this->_args) {
-    if (info_part == "default") {
-      insert_info_parts_default(info_parts);
-    } else {
-      info_parts.insert(info_part);
-    }
-  }
-
-  if (info_parts.size() == 0) {
-    insert_info_parts_default(info_parts);
-  }
-
-  client.send(Message(Message::Type::BulkString, client.server().info().to_string(info_parts)));
+const std::vector<std::string>& InfoCommand::args() const {
+  return this->_args;
 }
+
+// void insert_info_parts_default(std::unordered_set<std::string>& info_parts) {
+//   info_parts.insert("server");
+//   info_parts.insert("replication");
+// }
+
+// void InfoCommand::reply(Handler& client) const {
+//   std::unordered_set<std::string> info_parts;
+
+//   for (const auto& info_part: this->_args) {
+//     if (info_part == "default") {
+//       insert_info_parts_default(info_parts);
+//     } else {
+//       info_parts.insert(info_part);
+//     }
+//   }
+
+//   if (info_parts.size() == 0) {
+//     insert_info_parts_default(info_parts);
+//   }
+
+//   client.send(Message(Message::Type::BulkString, client.server().info().to_string(info_parts)));
+// }
 
 Message InfoCommand::construct() const {
   std::vector<Message> parts;

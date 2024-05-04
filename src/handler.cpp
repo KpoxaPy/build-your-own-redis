@@ -1,5 +1,6 @@
 #include "handler.h"
 
+#include "message.h"
 #include "server.h"
 #include "utils.h"
 
@@ -21,16 +22,8 @@ public:
 Handler::Handler(int fd, HandlersManager& manager)
   : _client_fd(fd)
   , _manager(manager)
+  , _parser(_read_buffer)
 {
-}
-
-Handler::Handler(Handler&& other)
-  : _manager(other._manager)
-{
-  this->_client_fd = std::move(other._client_fd);
-  other._client_fd.reset();
-
-  this->_read_buffer = std::move(other._read_buffer);
 }
 
 Handler::~Handler() {
@@ -139,24 +132,6 @@ void Handler::read() {
   // return this->parse_raw_messages();
 }
 
-// std::size_t Handler::parse_raw_messages() {
-//   size_t new_messages = 0;
-
-//   const RawMessage delim = {'\r', '\n'};
-//   while (true) {
-//     auto result_it = std::search(this->_read_buffer.begin(), this->_read_buffer.end(), delim.begin(), delim.end());
-//     if (result_it == this->_read_buffer.end()) {
-//       break;
-//     }
-
-//     this->_raw_messages.emplace_back(this->_read_buffer.begin(), result_it);
-//     this->_read_buffer.erase(this->_read_buffer.begin(), result_it + delim.size());
-//     ++new_messages;
-//   }
-
-//   return new_messages;
-// }
-
 void Handler::write() {
   static constexpr std::size_t WRITE_BUFFER_SIZE = 1024;
   std::array<char, WRITE_BUFFER_SIZE> write_buffer;
@@ -207,12 +182,12 @@ void Handler::write() {
   }
 }
 
-// void Handler::send(const Message& message) {
-//   auto str = message.to_string();
-//   std::cerr << ">> TO" << std::endl;
-//   std::cerr << str;
-//   this->send(str);
-// }
+void Handler::send(const Message& message) {
+  auto str = message.to_string();
+  std::cerr << ">> TO" << std::endl;
+  std::cerr << str;
+  this->send(str);
+}
 
 void Handler::send(const std::string& str) {
   this->_write_buffer.insert(this->_write_buffer.end(), str.begin(), str.begin() + str.size());

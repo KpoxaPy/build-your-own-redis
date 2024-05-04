@@ -3,13 +3,14 @@ cmake_minimum_required(VERSION 3.13)
 project(redis-starter-cpp)
 
 set(SOURCE_FILES 
-    # src/command.cpp
-    src/events.cpp
+    src/command.cpp
     src/event_types.cpp
+    src/events.cpp
     src/handler.cpp
     src/handlers_manager.cpp
     src/main.cpp
-    # src/message.cpp
+    src/message.cpp
+    src/message_parser.cpp
     src/poller.cpp
     src/server.cpp
     src/storage.cpp
