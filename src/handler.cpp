@@ -22,7 +22,7 @@ public:
 };
 
 Handler::Handler(int fd, HandlersManager& manager)
-  : _client_fd(fd)
+  : _fd(fd)
   , _manager(manager)
   , _parser(this->_read_buffer)
 {
@@ -36,8 +36,8 @@ Handler::Handler(Handler&& other)
   , _parser(std::move(other._parser))
   , _handler_desciptor(std::move(other._handler_desciptor))
 {
-  this->_client_fd = std::move(other._client_fd);
-  other._client_fd.reset();
+  this->_fd = std::move(other._fd);
+  other._fd.reset();
 }
 
 Handler::~Handler() {
@@ -47,11 +47,11 @@ Handler::~Handler() {
 void Handler::start(EventLoopManagerPtr event_loop) {
   this->_event_loop = event_loop;
 
-  if (!this->_client_fd) {
+  if (!this->_fd) {
     return;
   }
 
-  fcntl(this->_client_fd.value(), F_SETFL, O_NONBLOCK);
+  fcntl(this->_fd.value(), F_SETFL, O_NONBLOCK);
 
   this->_handler_desciptor = _event_loop->make_desciptor();
   this->_event_loop->listen(this->_handler_desciptor, [this](const Event& event) {
@@ -75,24 +75,24 @@ void Handler::start(EventLoopManagerPtr event_loop) {
 void Handler::setup_poll(bool write) {
   if (write) {
     this->_event_loop->post(PollAddEvent::make(
-        this->_client_fd.value(),
+        this->_fd.value(),
         {PollEventType::ReadyToRead, PollEventType::ReadyToWrite},
         this->_handler_desciptor));
   } else {
     this->_event_loop->post(PollAddEvent::make(
-        this->_client_fd.value(),
+        this->_fd.value(),
         {PollEventType::ReadyToRead},
         this->_handler_desciptor));
   }
 }
 
 void Handler::close() {
-  if (this->_client_fd) {
-    this->_event_loop->post(PollRemoveEvent::make(this->_client_fd.value()));
-    this->_event_loop->post(HandlerRemoveEvent::make(this->_client_fd.value()));
+  if (this->_fd) {
+    this->_event_loop->post(PollRemoveEvent::make(this->_fd.value()));
+    this->_event_loop->post(HandlerRemoveEvent::make(this->_fd.value()));
 
-    ::close(this->_client_fd.value());
-    this->_client_fd.reset();
+    ::close(this->_fd.value());
+    this->_fd.reset();
   }
 }
 
@@ -121,7 +121,7 @@ void Handler::read() {
   std::array<char, READ_BUFFER_SIZE> read_buffer;
 
   while (true) {
-    ssize_t read_size = ::read(this->_client_fd.value(), read_buffer.data(), READ_BUFFER_SIZE);
+    ssize_t read_size = ::read(this->_fd.value(), read_buffer.data(), READ_BUFFER_SIZE);
     if (read_size > 0) {
       this->_read_buffer.insert(this->_read_buffer.end(), read_buffer.begin(), read_buffer.begin() + read_size);
       continue;
@@ -133,7 +133,7 @@ void Handler::read() {
         throw ConnReset();
       } else {
         std::ostringstream ss;
-        ss << "Error recv from client(" << this->_client_fd.value() << "): errno=" << errno;
+        ss << "Error recv from client(" << this->_fd.value() << "): errno=" << errno;
         throw std::runtime_error(ss.str());
       }
     }
@@ -228,7 +228,7 @@ void Handler::write() {
       write_buffer.begin());
 
     ssize_t transferred = ::write(
-      this->_client_fd.value(),
+      this->_fd.value(),
       write_buffer.data(),
       write_buffer_len_filled
     );
@@ -240,7 +240,7 @@ void Handler::write() {
         throw ConnReset();
       } else {
         std::ostringstream ss;
-        ss << "Error write to client(" << this->_client_fd.value() << "): errno=" << errno;
+        ss << "Error write to client(" << this->_fd.value() << "): errno=" << errno;
         throw std::runtime_error(ss.str());
       }
     } else {

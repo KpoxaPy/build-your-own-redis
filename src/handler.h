@@ -12,11 +12,6 @@ class HandlersManager;
 
 class Handler {
 public:
-  enum class ProcessStatus {
-    Keep,
-    Closed,
-  };
-
   Handler(int fd, HandlersManager& manager);
   Handler(Handler&&);
   ~Handler();
@@ -26,7 +21,7 @@ public:
 private:
   using Buffer = std::deque<char>;
 
-  std::optional<int> _client_fd;
+  std::optional<int> _fd;
   HandlersManager& _manager;
   EventLoopManagerPtr _event_loop;
 
