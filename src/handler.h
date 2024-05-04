@@ -17,6 +17,7 @@ public:
   };
 
   Handler(int fd, HandlersManager& manager);
+  Handler(Handler&&);
   ~Handler();
 
   void start(EventLoopManagerPtr event_loop);
@@ -37,6 +38,7 @@ private:
   void setup_poll(bool write = false);
   void close();
 
+  void process();
   void read();
 
   void write();

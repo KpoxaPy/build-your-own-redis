@@ -3,6 +3,7 @@
 #include "message.h"
 
 #include <deque>
+#include <optional>
 #include <vector>
 
 template<typename T>
@@ -18,4 +19,5 @@ public:
 private:
   T& _buffer;
   RawMessageBuffer _raw_message_buffer;
+  std::optional<std::size_t> _length_encoded_message_expected;
 };

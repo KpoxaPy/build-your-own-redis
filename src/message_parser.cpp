@@ -3,9 +3,20 @@
 #include "message_common.h"
 #include "utils.h"
 
+#include <algorithm>
 #include <queue>
 #include <sstream>
 #include <stdexcept>
+#include <unordered_set>
+
+const std::string DELIM = "\r\n";
+const std::unordered_set<char> EXPECTED_TYPES = {
+  '+', '-', ':', '$', '*'
+};
+const std::unordered_set<char> LENGTH_TYPES = {
+  '$'
+};
+
 
 template class MessageParser<std::deque<char>>;
 
@@ -100,8 +111,7 @@ public:
         return {};
       }
 
-      auto bulk_data = this->get();
-      message.setValue(std::string{raw_message.begin() + 1, raw_message.end()});
+      message.setValue(this->get());
       return message;
     } else if (raw_message[0] == MESSAGE_ARRAY) {
       auto message = Message(Message::Type::Array);
@@ -154,6 +164,52 @@ MessageParser<T>::MessageParser(T& buffer)
 
 template <typename T>
 std::optional<Message> MessageParser<T>::try_parse() {
+  while (this->_buffer.size() > 0) {
+    if (this->_length_encoded_message_expected) {
+      auto length = this->_length_encoded_message_expected.value();
+      if (this->_buffer.size() < length + DELIM.size()) {
+        break;
+      }
+
+      auto first = this->_buffer.begin();
+      auto last = this->_buffer.begin() + length;
+      this->_raw_message_buffer.emplace_back(first, last);
+      this->_buffer.erase(first, last + DELIM.size());
+
+      this->_length_encoded_message_expected.reset();
+      continue;
+
+    }
+    
+    char type = this->_buffer[0];
+    if (!EXPECTED_TYPES.contains(type)) {
+      std::ostringstream ss;
+      ss << "Unknown message type: " << type;
+      throw std::runtime_error(ss.str());
+    }
+
+    auto result_it = std::search(this->_buffer.begin(), this->_buffer.end(), DELIM.begin(), DELIM.end());
+    if (result_it == this->_buffer.end()) {
+      break;
+    }
+
+    this->_raw_message_buffer.emplace_back(this->_buffer.begin(), result_it);
+    this->_buffer.erase(this->_buffer.begin(), result_it + DELIM.size());
+
+    if (!LENGTH_TYPES.contains(type)) {
+      continue;
+    }
+
+    auto& last = this->_raw_message_buffer.back();
+    if (auto value = parseInt(last.data() + 1, last.size() - 1)) {
+      this->_length_encoded_message_expected = value.value();
+    } else {
+      std::ostringstream ss;
+      ss << "Malformed length for array message: " << last;
+      throw std::runtime_error(ss.str());
+    }
+  }
+
   ParseHelper<T> helper(this->_raw_message_buffer);
   return helper.parse();
 }

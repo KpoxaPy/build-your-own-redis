@@ -1,5 +1,6 @@
 #include "handler.h"
 
+#include "command.h"
 #include "message.h"
 #include "server.h"
 #include "utils.h"
@@ -22,8 +23,20 @@ public:
 Handler::Handler(int fd, HandlersManager& manager)
   : _client_fd(fd)
   , _manager(manager)
-  , _parser(_read_buffer)
+  , _parser(this->_read_buffer)
 {
+}
+
+Handler::Handler(Handler&& other)
+  : _manager(other._manager)
+  , _event_loop(std::move(other._event_loop))
+  , _read_buffer(std::move(other._read_buffer))
+  , _write_buffer(std::move(other._write_buffer))
+  , _parser(std::move(other._parser))
+  , _handler_desciptor(std::move(other._handler_desciptor))
+{
+  this->_client_fd = std::move(other._client_fd);
+  other._client_fd.reset();
 }
 
 Handler::~Handler() {
@@ -44,7 +57,7 @@ void Handler::start(EventLoopManagerPtr event_loop) {
     auto& poll_event = static_cast<const PollEvent&>(event);
 
     if (poll_event.type == PollEventType::ReadyToRead) {
-      this->read();
+      this->process();
     } else if (poll_event.type == PollEventType::ReadyToWrite) {
       this->write();
     } else if (poll_event.type == PollEventType::HangUp) {
@@ -57,29 +70,6 @@ void Handler::start(EventLoopManagerPtr event_loop) {
   });
   this->setup_poll(false);
 }
-
-// Handler::ProcessStatus Handler::process() {
-//   try {
-//     this->read();
-
-//     while (auto maybe_message = Message::ParseFrom(this->_raw_messages)) {
-//       const auto& message = maybe_message.value();
-
-//       std::cerr << "<< FROM" << std::endl << message;
-
-//       try {
-//         auto command = Command::try_parse(message);
-//         command->reply(*this);
-//       } catch (const CommandParseError& err) {
-//         this->send(Message(Message::Type::SimpleError, {err.what()}));
-//       }
-//     }
-//   } catch (const ConnReset&) {
-//     return ProcessStatus::Closed;
-//   }
-
-//   return ProcessStatus::Keep;
-// }
 
 void Handler::setup_poll(bool write) {
   if (write) {
@@ -98,11 +88,32 @@ void Handler::setup_poll(bool write) {
 void Handler::close() {
   if (this->_client_fd) {
     this->_event_loop->post(PollRemoveEvent::make(this->_client_fd.value()));
+    this->_event_loop->post(HandlerRemoveEvent::make(this->_client_fd.value()));
 
     ::close(this->_client_fd.value());
     this->_client_fd.reset();
   }
-  this->_event_loop->post(HandlerRemoveEvent::make(this->_client_fd.value()));
+}
+
+void Handler::process() {
+  try {
+    this->read();
+
+    while (auto maybe_message = this->_parser.try_parse()) {
+      const auto& message = maybe_message.value();
+
+      std::cerr << "<< FROM" << std::endl << message;
+
+      try {
+        auto command = Command::try_parse(message);
+        // command->reply(*this);
+      } catch (const CommandParseError& err) {
+        this->send(Message(Message::Type::SimpleError, {err.what()}));
+      }
+    }
+  } catch (const ConnReset&) {
+    this->close();
+  }
 }
 
 void Handler::read() {
@@ -128,8 +139,6 @@ void Handler::read() {
     }
     break;
   }
-
-  // return this->parse_raw_messages();
 }
 
 void Handler::write() {
@@ -142,7 +151,7 @@ void Handler::write() {
 
   std::size_t transferred_total = 0;
   while (transferred_total < this->_write_buffer.size()) {
-    const auto max_write = std::max(transferred_total + WRITE_BUFFER_SIZE, this->_write_buffer.size());
+    const auto max_write = std::min(transferred_total + WRITE_BUFFER_SIZE, this->_write_buffer.size());
     const auto write_buffer_len_filled = max_write - transferred_total;
 
     copy(

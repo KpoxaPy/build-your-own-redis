@@ -33,7 +33,7 @@ void HandlersManager::add(int fd) {
     throw std::runtime_error("Re-adding client fd to handlers manager is not allowed!");
   }
 
-  auto& handler = this->_handlers.emplace(fd, Handler(fd, *this)).first->second;
+  auto& handler = this->_handlers.try_emplace(fd, fd, *this).first->second;
   handler.start(this->_event_loop);
 }
 
