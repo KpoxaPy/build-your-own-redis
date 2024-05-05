@@ -127,16 +127,22 @@ void Server::connect_handlers_manager_add(EventDescriptor descriptor) {
 }
 
 void Server::start() {
+  if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Server starting on 0.0.0.0:" << this->_info.server.tcp_port << std::endl;
+
   int server_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
   if (server_fd < 0) {
-    throw std::runtime_error("Failed to create server socket");
+    std::ostringstream ss;
+    ss << "Failed to create server socket: " << strerror(errno);
+    throw std::runtime_error(ss.str());
   }
 
   this->_server_fd = server_fd;
 
   int reuse = 1;
   if (setsockopt(*this->_server_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
-    throw std::runtime_error("Setsockopt failed");
+    std::ostringstream ss;
+    ss << "Setsockopt failed: " << strerror(errno);
+    throw std::runtime_error(ss.str());
   }
 
   struct sockaddr_in server_addr;
@@ -146,12 +152,14 @@ void Server::start() {
 
   if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
     std::ostringstream ss;
-    ss << "Failed to bind to port " << this->_info.server.tcp_port;
+    ss << "Failed to bind to port " << this->_info.server.tcp_port << ": " << strerror(errno);
     throw std::runtime_error(ss.str());
   }
 
   if (listen(*this->_server_fd, CONN_BACKLOG) != 0) {
-    throw std::runtime_error("Listen failed");
+    std::ostringstream ss;
+    ss << "Listen failed: " << strerror(errno);
+    throw std::runtime_error(ss.str());
   }
 
   auto accept_descriptor = _event_loop->make_desciptor();
@@ -177,7 +185,7 @@ void Server::start() {
       PollEventTypeList{PollEventType::ReadyToRead},
       accept_descriptor);
   
-  if (DEBUG_LEVEL >= 1) std::cerr << "SEBUG Server ready!" << std::endl;
+  if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Server ready!" << std::endl;
 }
 
 std::optional<int> Server::accept() {
