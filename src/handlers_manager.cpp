@@ -14,6 +14,10 @@ HandlersManager::HandlersManager(EventLoopPtr event_loop)
   this->_remove_listener = this->_event_loop->make_desciptor();
 }
 
+void HandlersManager::set_talker(TalkerBuilder builder) {
+  this->_talker_builder = builder;
+}
+
 void HandlersManager::connect_poller_add(EventDescriptor descriptor) {
   this->_poller_add = descriptor;
 }
@@ -47,12 +51,14 @@ void HandlersManager::add(int fd) {
     throw std::runtime_error("Re-adding client fd to handlers manager is not allowed!");
   }
 
-  auto& handler = this->_handlers.try_emplace(fd, this->_event_loop, fd).first->second;
+  auto& handler = this->_handlers.try_emplace(fd, this->_event_loop, fd, this->_talker_builder()).first->second;
 
   handler.connect_poller_add(this->_poller_add);
   handler.connect_poller_remove(this->_poller_remove);
   handler.connect_handlers_manager_remove(this->remove_listener());
   handler.start();
+
+  std::cerr << "Handlers total: " << this->_handlers.size() << std::endl;
 }
 
 void HandlersManager::remove(int fd) {

@@ -2,6 +2,7 @@
 
 #include "events.h"
 #include "message_parser.h"
+#include "talker.h"
 
 #include <optional>
 #include <deque>
@@ -11,7 +12,7 @@ class HandlersManager;
 
 class Handler {
 public:
-  Handler(EventLoopPtr event_loop, int fd);
+  Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker);
   ~Handler();
 
   void connect_poller_add(EventDescriptor);
@@ -23,6 +24,7 @@ private:
   using Buffer = std::deque<char>;
 
   std::optional<int> _fd;
+  TalkerPtr _talker;
 
   EventDescriptor _poller_add = UNDEFINED_EVENT;
   EventDescriptor _poller_remove = UNDEFINED_EVENT;

@@ -2,6 +2,7 @@
 #include "poller.h"
 #include "replica.h"
 #include "server.h"
+#include "server_talker.h"
 #include "storage.h"
 #include "handlers_manager.h"
 
@@ -16,9 +17,14 @@ int main(int argc, char **argv) {
     auto handlers_manager = std::make_shared<HandlersManager>(event_loop);
     auto server = std::make_shared<Server>(event_loop, ServerInfo::build(argc, argv));
 
+    auto talkerBuilder = []() {
+      return std::make_shared<ServerTalker>();
+    };
+
     storage->start();
     poller->start();
 
+    handlers_manager->set_talker(talkerBuilder);
     handlers_manager->connect_poller_add(poller->add_listener());
     handlers_manager->connect_poller_remove(poller->remove_listener());
     handlers_manager->start();

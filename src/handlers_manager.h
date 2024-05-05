@@ -2,6 +2,7 @@
 
 #include "events.h"
 #include "handler.h"
+#include "talker.h"
 
 #include <memory>
 
@@ -21,7 +22,11 @@ public:
 
 class HandlersManager {
 public:
+  using TalkerBuilder = std::function<TalkerPtr()>;
+
   HandlersManager(EventLoopPtr event_loop);
+
+  void set_talker(TalkerBuilder);
 
   void connect_poller_add(EventDescriptor);
   void connect_poller_remove(EventDescriptor);
@@ -35,6 +40,8 @@ private:
   EventDescriptor _add_listener = UNDEFINED_EVENT;
   EventDescriptor _remove_listener = UNDEFINED_EVENT;
   EventLoopPtr _event_loop;
+
+  TalkerBuilder _talker_builder;
 
   std::unordered_map<int, Handler> _handlers;
 

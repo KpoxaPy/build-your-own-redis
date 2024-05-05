@@ -22,15 +22,16 @@ public:
   ConnReset() : std::runtime_error("Conn reset") {}
 };
 
-Handler::Handler(EventLoopPtr event_loop, int fd)
+Handler::Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker)
   : _event_loop(event_loop)
   , _fd(fd)
+  , _talker(talker)
   , _parser(this->_read_buffer)
 {
 }
 
 Handler::~Handler() {
-  close();
+  this->close();
 }
 
 void Handler::connect_poller_add(EventDescriptor descriptor) {
@@ -88,7 +89,9 @@ void Handler::setup_poll(bool write) {
 }
 
 void Handler::close() {
+  std::cerr << "DEBUG Closing fd=" << this->_fd.value() << std::endl;
   if (this->_fd) {
+    std::cerr << "DEBUG Closed fd=" << this->_fd.value() << std::endl;
     this->_event_loop->post<PollRemoveEvent>(this->_poller_remove, this->_fd.value());
     this->_event_loop->post<HandlerRemoveEvent>(this->_handlers_manager_remove, this->_fd.value());
 
@@ -106,10 +109,10 @@ void Handler::process() {
 
       std::cerr << "<< FROM" << std::endl << message;
 
-      try {
-        // this->reply(Command::try_parse(message));
-      } catch (const CommandParseError& err) {
-        this->send(Message(Message::Type::SimpleError, {err.what()}));
+      if (auto reply = this->_talker->talk(message)) {
+        this->send(reply.value());
+      } else {
+        this->close();
       }
     }
   } catch (const ConnReset&) {
