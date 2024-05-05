@@ -47,7 +47,7 @@ std::string Message::to_string() const {
     } else {
       ss << MESSAGE_ARRAY << elements.size() << "\r\n";
       for (const auto& element : elements) {
-        ss << element;
+        ss << element.to_string();
       }
     }
   }
