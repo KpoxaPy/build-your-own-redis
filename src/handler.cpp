@@ -55,6 +55,10 @@ void Handler::start() {
 
   this->_handler_desciptor = _event_loop->make_desciptor();
   this->_event_loop->listen(this->_handler_desciptor, [this](const Event& event) {
+    if (!this->_fd) {
+      return;
+    }
+
     auto& poll_event = static_cast<const PollEvent&>(event);
 
     if (poll_event.type == PollEventType::ReadyToRead) {
@@ -89,9 +93,7 @@ void Handler::setup_poll(bool write) {
 }
 
 void Handler::close() {
-  std::cerr << "DEBUG Closing fd=" << this->_fd.value() << std::endl;
   if (this->_fd) {
-    std::cerr << "DEBUG Closed fd=" << this->_fd.value() << std::endl;
     this->_event_loop->post<PollRemoveEvent>(this->_poller_remove, this->_fd.value());
     this->_event_loop->post<HandlerRemoveEvent>(this->_handlers_manager_remove, this->_fd.value());
 
@@ -126,10 +128,12 @@ void Handler::read() {
 
   while (true) {
     ssize_t read_size = ::read(this->_fd.value(), read_buffer.data(), READ_BUFFER_SIZE);
+
     if (read_size > 0) {
       this->_read_buffer.insert(this->_read_buffer.end(), read_buffer.begin(), read_buffer.begin() + read_size);
       continue;
     }
+
     if (read_size < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         break;
@@ -141,6 +145,11 @@ void Handler::read() {
         throw std::runtime_error(ss.str());
       }
     }
+
+    if (read_size == 0) {
+      throw ConnReset();
+    }
+
     break;
   }
 }
