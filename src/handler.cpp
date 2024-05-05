@@ -3,6 +3,7 @@
 #include "command.h"
 #include "handlers_manager.h"
 #include "message.h"
+#include "poller.h"
 #include "server.h"
 #include "utils.h"
 
@@ -21,32 +22,30 @@ public:
   ConnReset() : std::runtime_error("Conn reset") {}
 };
 
-Handler::Handler(int fd, HandlersManager& manager)
-  : _fd(fd)
-  , _manager(manager)
+Handler::Handler(EventLoopPtr event_loop, int fd)
+  : _event_loop(event_loop)
+  , _fd(fd)
   , _parser(this->_read_buffer)
 {
-}
-
-Handler::Handler(Handler&& other)
-  : _manager(other._manager)
-  , _event_loop(std::move(other._event_loop))
-  , _read_buffer(std::move(other._read_buffer))
-  , _write_buffer(std::move(other._write_buffer))
-  , _parser(std::move(other._parser))
-  , _handler_desciptor(std::move(other._handler_desciptor))
-{
-  this->_fd = std::move(other._fd);
-  other._fd.reset();
 }
 
 Handler::~Handler() {
   close();
 }
 
-void Handler::start(EventLoopManagerPtr event_loop) {
-  this->_event_loop = event_loop;
+void Handler::connect_poller_add(EventDescriptor descriptor) {
+  this->_poller_add = descriptor;
+}
 
+void Handler::connect_poller_remove(EventDescriptor descriptor) {
+  this->_poller_remove = descriptor;
+}
+
+void Handler::connect_handlers_manager_remove(EventDescriptor descriptor) {
+  this->_handlers_manager_remove = descriptor;
+}
+
+void Handler::start() {
   if (!this->_fd) {
     return;
   }
@@ -74,22 +73,24 @@ void Handler::start(EventLoopManagerPtr event_loop) {
 
 void Handler::setup_poll(bool write) {
   if (write) {
-    this->_event_loop->post(PollAddEvent::make(
+    this->_event_loop->post<PollAddEvent>(
+        this->_poller_add,
         this->_fd.value(),
-        {PollEventType::ReadyToRead, PollEventType::ReadyToWrite},
-        this->_handler_desciptor));
+        PollEventTypeList{PollEventType::ReadyToRead, PollEventType::ReadyToWrite},
+        this->_handler_desciptor);
   } else {
-    this->_event_loop->post(PollAddEvent::make(
+    this->_event_loop->post<PollAddEvent>(
+        this->_poller_add,
         this->_fd.value(),
-        {PollEventType::ReadyToRead},
-        this->_handler_desciptor));
+        PollEventTypeList{PollEventType::ReadyToRead},
+        this->_handler_desciptor);
   }
 }
 
 void Handler::close() {
   if (this->_fd) {
-    this->_event_loop->post(PollRemoveEvent::make(this->_fd.value()));
-    this->_event_loop->post(HandlerRemoveEvent::make(this->_fd.value()));
+    this->_event_loop->post<PollRemoveEvent>(this->_poller_remove, this->_fd.value());
+    this->_event_loop->post<HandlerRemoveEvent>(this->_handlers_manager_remove, this->_fd.value());
 
     ::close(this->_fd.value());
     this->_fd.reset();
@@ -106,7 +107,7 @@ void Handler::process() {
       std::cerr << "<< FROM" << std::endl << message;
 
       try {
-        this->reply(Command::try_parse(message));
+        // this->reply(Command::try_parse(message));
       } catch (const CommandParseError& err) {
         this->send(Message(Message::Type::SimpleError, {err.what()}));
       }
@@ -138,74 +139,6 @@ void Handler::read() {
       }
     }
     break;
-  }
-}
-
-void Handler::reply(CommandPtr command) {
-  if (command->type() == CommandType::Ping) {
-    this->send(Message(Message::Type::SimpleString, {"PONG"}));
-
-  } else if (command->type() == CommandType::Echo) {
-    auto echo_command = static_cast<EchoCommand&>(*command);
-
-    this->send(Message(Message::Type::BulkString, echo_command.data()));
-
-  } else if (command->type() == CommandType::Set) {
-    auto set_command = static_cast<SetCommand&>(*command);
-
-    this->_manager.storage()->storage[set_command.key()] = set_command.value();
-    Value& stored_value = this->_manager.storage()->storage[set_command.key()];
-
-    if (set_command.expire_ms()) {
-      stored_value.setExpire(std::chrono::milliseconds{set_command.expire_ms().value()});
-    }
-
-    this->send(Message(Message::Type::SimpleString, "OK"));
-
-  } else if (command->type() == CommandType::Get) {
-    auto get_command = static_cast<GetCommand&>(*command);
-
-    auto it = this->_manager.storage()->storage.find(get_command.key());
-    if (it == this->_manager.storage()->storage.end()) {
-      this->send(Message(Message::Type::BulkString, {}));
-      return;
-    }
-    auto& value = it->second;
-
-    if (value.getExpire() && Clock::now() >= value.getExpire()) {
-      this->_manager.storage()->storage.erase(get_command.key());
-      this->send(Message(Message::Type::BulkString, {}));
-      return;
-    }
-
-    this->send(Message(Message::Type::BulkString, value.data()));
-
-  } else if (command->type() == CommandType::Info) {
-    auto info_command = static_cast<InfoCommand&>(*command);
-
-    std::unordered_set<std::string> info_parts;
-
-    auto default_parts = [&info_parts]() {
-      info_parts.insert("server");
-      info_parts.insert("replication");
-    };
-
-    for (const auto& info_part : info_command.args()) {
-      if (info_part == "default") {
-        default_parts();
-      } else {
-        info_parts.insert(info_part);
-      }
-    }
-
-    if (info_parts.size() == 0) {
-      default_parts();
-    }
-
-    this->send(Message(Message::Type::BulkString, this->_manager.server()->info().to_string(info_parts)));
-
-  } else {
-    this->send(Message(Message::Type::SimpleError, {"unimplemented command"}));
   }
 }
 

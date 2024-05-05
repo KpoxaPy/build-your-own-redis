@@ -12,6 +12,6 @@ void Replica::set_server(ServerPtr server) {
   this->_server = server;
 }
 
-void Replica::start(EventLoopManagerPtr event_loop) {
+void Replica::start(EventLoopPtr event_loop) {
   this->_event_loop = event_loop;
 }

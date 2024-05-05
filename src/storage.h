@@ -26,16 +26,15 @@ private:
   std::optional<Timepoint> _expire_time;
 };
 
-class Storage;
-using StoragePtr = std::shared_ptr<Storage>;
 class Storage {
 public:
-  static StoragePtr make();
+  Storage(EventLoopPtr event_loop);
 
   std::unordered_map<std::string, Value> storage;
 
-  void start(EventLoopManagerPtr event_loop);
+  void start();
 
 private:
-  EventLoopManagerPtr _event_loop;
+  EventLoopPtr _event_loop;
 };
+using StoragePtr = std::shared_ptr<Storage>;

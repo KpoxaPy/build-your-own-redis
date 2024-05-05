@@ -3,14 +3,35 @@
 #include <iostream>
 #include <sstream>
 
-PollerPtr Poller::make() {
-  return std::make_shared<Poller>();
+PollAddEvent::PollAddEvent(int fd, PollEventTypeList types, EventDescriptor expected_descriptor)
+    : fd(fd), types(types), expected_descriptor(expected_descriptor) {
 }
 
-void Poller::start(EventLoopManagerPtr event_loop) {
-  this->_event_loop = event_loop;
+PollRemoveEvent::PollRemoveEvent(int fd)
+    : fd(fd) {
+}
 
-  this->_event_loop->listen(EventPollerAdd, [this](const Event& event) {
+PollEvent::PollEvent(int fd, PollEventType type)
+    : fd(fd), type(type) {
+}
+
+
+Poller::Poller(EventLoopPtr event_loop)
+  : _event_loop(event_loop) {
+  this->_add_listener = this->_event_loop->make_desciptor();
+  this->_remove_listener = this->_event_loop->make_desciptor();
+}
+
+EventDescriptor Poller::add_listener() {
+  return this->_add_listener;
+}
+
+EventDescriptor Poller::remove_listener() {
+  return this->_remove_listener;
+}
+
+void Poller::start() {
+  this->_event_loop->listen(this->_add_listener, [this](const Event& event) {
     auto& add_event = static_cast<const PollAddEvent&>(event);
 
     short flags;
@@ -42,7 +63,7 @@ void Poller::start(EventLoopManagerPtr event_loop) {
     }
   });
 
-  this->_event_loop->listen(EventPollerRemove, [this](const Event& event) {
+  this->_event_loop->listen(this->_remove_listener, [this](const Event& event) {
     auto& remove_event = static_cast<const PollRemoveEvent&>(event);
 
     auto it = this->_handlers.find(remove_event.fd);
@@ -80,23 +101,23 @@ void Poller::start(EventLoopManagerPtr event_loop) {
         auto& handler = this->_handlers[fd.fd];
 
         if (fd.revents & POLLNVAL) {
-          this->_event_loop->post(PollEvent::make(handler.event_descriptor, handler.fd, PollEventType::InvalidFD));
+          this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::InvalidFD);
         }
 
         if (fd.revents & POLLERR) {
-          this->_event_loop->post(PollEvent::make(handler.event_descriptor, handler.fd, PollEventType::Error));
+          this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::Error);
         }
 
         if (fd.revents & POLLHUP) {
-          this->_event_loop->post(PollEvent::make(handler.event_descriptor, handler.fd, PollEventType::HangUp));
+          this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::HangUp);
         }
 
         if (handler.flags & POLLIN && fd.revents & POLLIN) {
-          this->_event_loop->post(PollEvent::make(handler.event_descriptor, handler.fd, PollEventType::ReadyToRead));
+          this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::ReadyToRead);
         }
 
         if (handler.flags & POLLOUT && fd.revents & POLLOUT) {
-          this->_event_loop->post(PollEvent::make(handler.event_descriptor, handler.fd, PollEventType::ReadyToWrite));
+          this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::ReadyToWrite);
         }
       }
 

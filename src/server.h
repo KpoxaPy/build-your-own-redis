@@ -1,7 +1,6 @@
 #pragma once
 
 #include "events.h"
-#include "storage.h"
 
 #include <memory>
 #include <optional>
@@ -35,22 +34,24 @@ class Server;
 using ServerPtr = std::shared_ptr<Server>;
 class Server {
 public:
-  template <typename ...Args>
-  static ServerPtr make(Args&& ...args) {
-    return std::make_shared<Server>(std::forward<Args&&>(args)...);
-  }
-
-  Server(ServerInfo info = {});
+  Server(EventLoopPtr event_loop, ServerInfo info = {});
   ~Server();
 
-  void start(EventLoopManagerPtr event_loop);
+  void connect_poller_add(EventDescriptor);
+  void connect_poller_remove(EventDescriptor);
+  void connect_handlers_manager_add(EventDescriptor);
+  void start();
 
   ServerInfo& info();
 
 private:
   ServerInfo _info;
 
-  EventLoopManagerPtr _event_loop;
+  EventDescriptor _poller_add = UNDEFINED_EVENT;
+  EventDescriptor _poller_remove = UNDEFINED_EVENT;
+  EventDescriptor _handlers_manager_add = UNDEFINED_EVENT;
+  EventLoopPtr _event_loop;
+
   std::optional<int> _server_fd;
 
   std::optional<int> accept();

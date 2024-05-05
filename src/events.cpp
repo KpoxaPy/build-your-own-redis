@@ -2,37 +2,46 @@
 
 #include <iostream>
 
-EventLoopManagerPtr EventLoopManager::make() {
-  return std::make_shared<EventLoopManager>();
+EventLoopPtr EventLoop::make() {
+  return std::make_shared<EventLoop>();
 }
 
-EventLoopManager::EventLoopManager(std::size_t max_unqueue_events)
+EventLoop::EventLoop(std::size_t max_unqueue_events)
   : _max_unqueue_events(max_unqueue_events)
 {
 }
 
-EventDescriptor EventLoopManager::make_desciptor() {
+EventDescriptor EventLoop::make_desciptor() {
   return this->_last++;
 }
 
-void EventLoopManager::repeat(Func func) {
+void EventLoop::repeat(Func func) {
   this->_repeated_jobs.emplace_back(std::move(func));
 }
 
-void EventLoopManager::post(Func func) {
+void EventLoop::post(Func func) {
   this->_onetime_jobs.emplace(std::move(func));
 }
 
-void EventLoopManager::listen(EventDescriptor descriptor, EventFunc func) {
+void EventLoop::listen(EventDescriptor descriptor, EventFunc func) {
+  if (descriptor == UNDEFINED_EVENT) {
+    return;
+  }
+
   auto& listeners = this->_listeners[descriptor];
   listeners.emplace_back(std::move(func));
 }
 
-void EventLoopManager::post(EventPtr event) {
+void EventLoop::post(EventDescriptor descriptor, EventPtr event) {
+  if (descriptor == UNDEFINED_EVENT) {
+    return;
+  }
+
+  event->_descriptor = descriptor;
   this->_events.emplace(std::move(event));
 }
 
-void EventLoopManager::start() {
+void EventLoop::start() {
   while (true) {
     for (auto& job: this->_repeated_jobs) {
       try {
@@ -59,22 +68,20 @@ void EventLoopManager::start() {
     }
 
     for (std::size_t i = 0; i < unqueue_size; ++i) {
-      auto& event = this->_events.front();
-      auto event_descriptor = event->descriptor(); 
+      const auto& event = *this->_events.front();
 
-      auto listeners_it = this->_listeners.find(event_descriptor);
+      auto listeners_it = this->_listeners.find(event._descriptor);
       if (listeners_it != this->_listeners.end()) {
-        // std::cerr << "Unqueued event(" << event_descriptor << ") with " << listeners_it->second.size() << " listeners" << std::endl;
         for (const auto& listener: listeners_it->second) {
           try {
-            listener(*event);
+            listener(event);
           } catch (const std::exception& exception) {
             std::cerr << "EventLoop caught exception while processing event: " << std::endl
               << exception.what() << std::endl;
           }
         }
       } else {
-        std::cerr << "Unqueued event(" << event_descriptor << ") with 0 listeners" << std::endl;
+        std::cerr << "Unqueued event(" << event._descriptor << ") with 0 listeners" << std::endl;
       }
 
       this->_events.pop();

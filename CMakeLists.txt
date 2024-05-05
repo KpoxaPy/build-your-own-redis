@@ -4,7 +4,6 @@ project(redis-starter-cpp)
 
 set(SOURCE_FILES 
     src/command.cpp
-    src/event_types.cpp
     src/events.cpp
     src/handler.cpp
     src/handlers_manager.cpp

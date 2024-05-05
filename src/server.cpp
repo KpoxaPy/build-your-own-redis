@@ -1,5 +1,7 @@
 #include "server.h"
 
+#include "handlers_manager.h"
+#include "poller.h"
 #include "utils.h"
 
 #include <arpa/inet.h>
@@ -94,17 +96,28 @@ std::string ServerInfo::Replication::to_string() const {
   return ss.str();
 }
 
-Server::Server(ServerInfo info)
-    : _info(std::move(info)) {
+Server::Server(EventLoopPtr event_loop, ServerInfo info)
+    : _event_loop(event_loop)
+    , _info(std::move(info)) {
 }
 
 Server::~Server() {
   this->close();
 }
 
-void Server::start(EventLoopManagerPtr event_loop) {
-  this->_event_loop = event_loop;
+void Server::connect_poller_add(EventDescriptor descriptor) {
+  this->_poller_add = descriptor;
+}
 
+void Server::connect_poller_remove(EventDescriptor descriptor) {
+  this->_poller_remove = descriptor;
+}
+
+void Server::connect_handlers_manager_add(EventDescriptor descriptor) {
+  this->_handlers_manager_add = descriptor;
+}
+
+void Server::start() {
   int server_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
   if (server_fd < 0) {
     throw std::runtime_error("Failed to create server socket");
@@ -143,13 +156,17 @@ void Server::start(EventLoopManagerPtr event_loop) {
 
     try {
       while (auto maybe_client_fd = this->accept()) {
-        this->_event_loop->post(HandlerAddEvent::make(maybe_client_fd.value()));
+        this->_event_loop->post<HandlerAddEvent>(this->_handlers_manager_add, maybe_client_fd.value());
       }
     } catch (std::exception& e) {
       std::cerr << "Client accepting error: " << e.what() << std::endl;
     }
   });
-  this->_event_loop->post(PollAddEvent::make(this->_server_fd.value(), {PollEventType::ReadyToRead}, accept_descriptor));
+  this->_event_loop->post<PollAddEvent>(
+      this->_poller_add,
+      this->_server_fd.value(),
+      PollEventTypeList{PollEventType::ReadyToRead},
+      accept_descriptor);
 }
 
 std::optional<int> Server::accept() {
@@ -176,7 +193,7 @@ ServerInfo& Server::info() {
 
 void Server::close() {
   if (this->_server_fd) {
-    this->_event_loop->post(PollRemoveEvent::make(this->_server_fd.value()));
+    this->_event_loop->post<PollRemoveEvent>(this->_poller_remove, this->_server_fd.value());
     ::close(this->_server_fd.value());
     this->_server_fd.reset();
   }

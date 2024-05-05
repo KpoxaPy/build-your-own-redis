@@ -9,16 +9,24 @@
 
 int main(int argc, char **argv) {
   try {
-    auto event_loop = EventLoopManager::make();
-    auto poller = Poller::make();
-    auto storage = Storage::make();
-    auto handlers_manager = HandlersManager::make();
-    auto server = Server::make(ServerInfo::build(argc, argv));
+    auto event_loop = EventLoop::make();
 
-    poller->start(event_loop);
-    storage->start(event_loop);
-    handlers_manager->start(event_loop);
-    server->start(event_loop);
+    auto storage = std::make_shared<Storage>(event_loop);
+    auto poller = std::make_shared<Poller>(event_loop);
+    auto handlers_manager = std::make_shared<HandlersManager>(event_loop);
+    auto server = std::make_shared<Server>(event_loop, ServerInfo::build(argc, argv));
+
+    storage->start();
+    poller->start();
+
+    handlers_manager->connect_poller_add(poller->add_listener());
+    handlers_manager->connect_poller_remove(poller->remove_listener());
+    handlers_manager->start();
+
+    server->connect_poller_add(poller->add_listener());
+    server->connect_poller_remove(poller->remove_listener());
+    server->connect_handlers_manager_add(handlers_manager->add_listener());
+    server->start();
 
     ReplicaPtr replica;
     if (server->info().replication.role == "slave") {

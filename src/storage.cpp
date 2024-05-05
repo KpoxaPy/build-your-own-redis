@@ -20,10 +20,9 @@ std::optional<Timepoint> Value::getExpire() const {
   return this->_expire_time;
 }
 
-StoragePtr Storage::make() {
-  return std::make_shared<Storage>();
+Storage::Storage(EventLoopPtr event_loop)
+  : _event_loop(event_loop) {
 }
 
-void Storage::start(EventLoopManagerPtr event_loop) {
-  this->_event_loop = event_loop;
+void Storage::start() {
 }

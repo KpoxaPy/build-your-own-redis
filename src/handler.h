@@ -2,7 +2,6 @@
 
 #include "events.h"
 #include "message_parser.h"
-#include "command.h"
 
 #include <optional>
 #include <deque>
@@ -12,18 +11,23 @@ class HandlersManager;
 
 class Handler {
 public:
-  Handler(int fd, HandlersManager& manager);
-  Handler(Handler&&);
+  Handler(EventLoopPtr event_loop, int fd);
   ~Handler();
 
-  void start(EventLoopManagerPtr event_loop);
+  void connect_poller_add(EventDescriptor);
+  void connect_poller_remove(EventDescriptor);
+  void connect_handlers_manager_remove(EventDescriptor);
+  void start();
 
 private:
   using Buffer = std::deque<char>;
 
   std::optional<int> _fd;
-  HandlersManager& _manager;
-  EventLoopManagerPtr _event_loop;
+
+  EventDescriptor _poller_add = UNDEFINED_EVENT;
+  EventDescriptor _poller_remove = UNDEFINED_EVENT;
+  EventDescriptor _handlers_manager_remove = UNDEFINED_EVENT;
+  EventLoopPtr _event_loop;
 
   Buffer _read_buffer;
   Buffer _write_buffer;
@@ -36,7 +40,6 @@ private:
 
   void process();
   void read();
-  void reply(CommandPtr);
 
   void write();
   void send(const Message& message);

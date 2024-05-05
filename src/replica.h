@@ -2,6 +2,7 @@
 
 #include "events.h"
 #include "server.h"
+#include "storage.h"
 
 #include <memory>
 
@@ -15,11 +16,11 @@ public:
   void set_storage(StoragePtr);
   void set_server(ServerPtr);
 
-  void start(EventLoopManagerPtr);
+  void start(EventLoopPtr);
 
 private:
   StoragePtr _storage;
   ServerPtr _server;
 
-  EventLoopManagerPtr _event_loop;
+  EventLoopPtr _event_loop;
 };
