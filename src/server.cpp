@@ -151,7 +151,7 @@ void Server::start() {
   server_addr.sin_port = htons(this->_info.server.tcp_port);
 
   bool binded = false;
-  for (std::size_t tries = 0; tries < 50; ++tries) {
+  for (std::size_t tries = 0; tries < 500; ++tries) {
     if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
       if (errno != EADDRINUSE) {
         break;
