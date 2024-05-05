@@ -71,6 +71,20 @@ std::optional<Message> ServerTalker::talk(const Message& message) {
 
       return Message(Message::Type::BulkString, this->_server->info().to_string(info_parts));
 
+    } else if (type == CommandType::ReplConf) {
+      auto& cmd = static_cast<ReplConfCommand&>(*command);
+
+      return Message(Message::Type::SimpleString, {"OK"});
+
+    } else if (type == CommandType::Psync) {
+      auto& cmd = static_cast<PsyncCommand&>(*command);
+
+      std::ostringstream ss;
+      ss << "FULLRESYNC"
+        << " " << this->_server->info().replication.master_replid
+        << " " << this->_server->info().replication.master_repl_offset;
+      return Message(Message::Type::SimpleString, ss.str());
+
     } else {
       return Message(Message::Type::SimpleError, {"unimplemented command"});
     }

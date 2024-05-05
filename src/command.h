@@ -19,7 +19,9 @@ enum class CommandType {
   Echo,
   Set,
   Get,
-  Info
+  Info,
+  ReplConf,
+  Psync
 };
 
 class Command;
@@ -98,6 +100,34 @@ public:
   static CommandPtr try_parse(const Message&);
 
   InfoCommand(std::vector<std::string> args = {});
+
+  const std::vector<std::string>& args() const;
+
+  Message construct() const override;
+
+private:
+  std::vector<std::string> _args;
+};
+
+class ReplConfCommand : public Command {
+public:
+  static CommandPtr try_parse(const Message&);
+
+  ReplConfCommand(std::vector<std::string> args = {});
+
+  const std::vector<std::string>& args() const;
+
+  Message construct() const override;
+
+private:
+  std::vector<std::string> _args;
+};
+
+class PsyncCommand : public Command {
+public:
+  static CommandPtr try_parse(const Message&);
+
+  PsyncCommand(std::vector<std::string> args = {});
 
   const std::vector<std::string>& args() const;
 

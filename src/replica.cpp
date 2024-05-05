@@ -92,6 +92,7 @@ void Replica::start() {
   freeaddrinfo(master_address);
 
   this->_talker = std::make_shared<ReplicaTalker>();
+  this->_talker->set_server(this->_server);
 
   this->_handler = std::make_unique<Handler>(this->_event_loop, this->_master_fd.value(), this->_talker);
   this->_handler->connect_poller_add(this->_poller_add);

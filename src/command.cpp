@@ -40,6 +40,10 @@ CommandPtr Command::try_parse(const Message& message) {
     return GetCommand::try_parse(message);
   } else if (command == "info") {
     return InfoCommand::try_parse(message);
+  } else if (command == "replconf") {
+    return ReplConfCommand::try_parse(message);
+  } else if (command == "psync") {
+    return PsyncCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");
@@ -274,6 +278,80 @@ const std::vector<std::string>& InfoCommand::args() const {
 Message InfoCommand::construct() const {
   std::vector<Message> parts;
   parts.emplace_back(Message::Type::BulkString, "INFO");
+  for (const auto& info_part: this->_args) {
+    parts.emplace_back(Message::Type::BulkString, info_part);
+  }
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+CommandPtr ReplConfCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  auto command = std::make_shared<ReplConfCommand>();
+
+  std::size_t data_pos = 1;
+  while (data_pos < data.size()) {
+    if (data[data_pos].type() != Message::Type::BulkString) {
+      throw CommandParseError("invalid type");
+    }
+
+    command->_args.emplace_back(std::get<std::string>(data[data_pos].getValue()));
+    data_pos += 1;
+  }
+
+  return command;
+}
+
+ReplConfCommand::ReplConfCommand(std::vector<std::string> args)
+  : _args(std::move(args)) {
+  this->_type = CommandType::ReplConf;
+}
+
+const std::vector<std::string>& ReplConfCommand::args() const {
+  return this->_args;
+}
+
+Message ReplConfCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "REPLCONF");
+  for (const auto& info_part: this->_args) {
+    parts.emplace_back(Message::Type::BulkString, info_part);
+  }
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+CommandPtr PsyncCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  auto command = std::make_shared<PsyncCommand>();
+
+  std::size_t data_pos = 1;
+  while (data_pos < data.size()) {
+    if (data[data_pos].type() != Message::Type::BulkString) {
+      throw CommandParseError("invalid type");
+    }
+
+    command->_args.emplace_back(std::get<std::string>(data[data_pos].getValue()));
+    data_pos += 1;
+  }
+
+  return command;
+}
+
+PsyncCommand::PsyncCommand(std::vector<std::string> args)
+  : _args(std::move(args)) {
+  this->_type = CommandType::Psync;
+}
+
+const std::vector<std::string>& PsyncCommand::args() const {
+  return this->_args;
+}
+
+Message PsyncCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "PSYNC");
   for (const auto& info_part: this->_args) {
     parts.emplace_back(Message::Type::BulkString, info_part);
   }
