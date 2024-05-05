@@ -158,7 +158,7 @@ void Server::start() {
       if (errno != EADDRINUSE) {
         break;
       }
-      if (DEBUG_LEVEL >= 2) std::cerr << "Failed to bind, address in use, retrying in " << retry_ms << "ms, try #" << tries + 1 << std::endl;
+      if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG Failed to bind, address in use, retrying in " << retry_ms << "ms, try #" << tries + 1 << std::endl;
       usleep(retry_ms * 1000);
     } else {
       binded = true;

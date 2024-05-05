@@ -45,11 +45,12 @@ std::optional<Message> ReplicaTalker::talk(const Message& message) {
       auto str = get<std::string>(message.getValue());
 
       this->_state = "undef";
-      // return PsyncCommand({"?", "-1"}).construct();
-      return Message(Message::Type::Undefined);
+      // return Message(Message::Type::Undefined);
+      return {};
     }
   } else {
-    return Message(Message::Type::Undefined);
+    // return Message(Message::Type::Undefined);
+    return {};
   }
 
   return {};
