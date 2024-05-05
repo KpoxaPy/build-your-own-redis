@@ -12,8 +12,11 @@ set(SOURCE_FILES
     src/message.cpp
     src/message_parser.cpp
     src/poller.cpp
+    src/replica.cpp
     src/server.cpp
+    src/server_talker.cpp
     src/storage.cpp
+    src/talker.cpp
     src/utils.cpp
 )
 
