@@ -151,13 +151,15 @@ void Server::start() {
   server_addr.sin_port = htons(this->_info.server.tcp_port);
 
   bool binded = false;
-  for (std::size_t tries = 0; tries < 500; ++tries) {
+  const int retry_ms = 100;
+  const int max_tries = 50;
+  for (std::size_t tries = 0; tries < max_tries; ++tries) {
     if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
       if (errno != EADDRINUSE) {
         break;
       }
-      if (DEBUG_LEVEL >= 2) std::cerr << "Failed to bind, address in use, retrying in 20ms, try #" << tries + 1 << std::endl;
-      usleep(100000);
+      if (DEBUG_LEVEL >= 2) std::cerr << "Failed to bind, address in use, retrying in " << retry_ms << "ms, try #" << tries + 1 << std::endl;
+      usleep(retry_ms * 1000);
     } else {
       binded = true;
       break;
