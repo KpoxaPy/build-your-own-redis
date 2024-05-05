@@ -47,6 +47,14 @@ ServerInfo ServerInfo::build(std::size_t argc, char** argv) {
       info.replication.master_host = argv[arg_pos + 1];
       info.replication.master_port = std::atoi(argv[arg_pos + 2]);
       arg_pos += 3;
+    } else if (std::string("-v") == argv[arg_pos]) {
+      info.debug_level = 1;
+
+      arg_pos += 1;
+    } else if (std::string("-vv") == argv[arg_pos]) {
+      info.debug_level = 2;
+
+      arg_pos += 1;
     } else {
       std::ostringstream ss;
       ss << "unexpected argument: " << argv[arg_pos];

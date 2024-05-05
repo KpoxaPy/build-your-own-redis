@@ -1,3 +1,4 @@
+#include "debug.h"
 #include "events.h"
 #include "poller.h"
 #include "replica.h"
@@ -10,12 +11,15 @@
 
 int main(int argc, char **argv) {
   try {
+    auto info = ServerInfo::build(argc, argv);
+    DEBUG_LEVEL = info.debug_level;
+
     auto event_loop = EventLoop::make();
 
     auto storage = std::make_shared<Storage>(event_loop);
     auto poller = std::make_shared<Poller>(event_loop);
     auto handlers_manager = std::make_shared<HandlersManager>(event_loop);
-    auto server = std::make_shared<Server>(event_loop, ServerInfo::build(argc, argv));
+    auto server = std::make_shared<Server>(event_loop, info);
 
     const bool is_slave = server->info().replication.role == "slave";
 

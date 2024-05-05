@@ -1,6 +1,7 @@
 #include "handler.h"
 
 #include "command.h"
+#include "debug.h"
 #include "handlers_manager.h"
 #include "message.h"
 #include "poller.h"
@@ -114,7 +115,7 @@ void Handler::process() {
     while (auto maybe_message = this->_parser.try_parse()) {
       const auto& message = maybe_message.value();
 
-      std::cerr << "<< FROM" << std::endl << message;
+      if (DEBUG_LEVEL >= 1) std::cerr << "<< FROM" << std::endl << message;
 
       if (auto reply = this->_talker->talk(message)) {
         if (reply.value().type() != Message::Type::Undefined) {
@@ -136,7 +137,7 @@ void Handler::read() {
   while (true) {
     ssize_t read_size = ::read(this->_fd.value(), read_buffer.data(), READ_BUFFER_SIZE);
 
-    std::cerr << "DEBUG read from fd=" << this->_fd.value()
+    if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG read from fd=" << this->_fd.value()
       << " transferred=" << read_size << std::endl;
 
     if (read_size > 0) {
@@ -145,7 +146,7 @@ void Handler::read() {
     }
 
     if (read_size < 0) {
-      std::cerr << "DEBUG read resulted in error: " << strerror(errno) << std::endl;
+      if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG read resulted in error: " << strerror(errno) << std::endl;
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         break;
       } else if (errno == ECONNRESET) {
@@ -173,7 +174,7 @@ void Handler::write() {
     return;
   }
 
-  std::cerr << "DEBUG write_buffer size=" << this->_write_buffer.size() << std::endl;
+  if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG write_buffer size=" << this->_write_buffer.size() << std::endl;
 
   std::size_t transferred_total = 0;
   while (transferred_total < this->_write_buffer.size()) {
@@ -192,11 +193,11 @@ void Handler::write() {
       write_buffer_len_filled
     );
 
-    std::cerr << "DEBUG write to fd=" << this->_fd.value()
+    if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG write to fd=" << this->_fd.value()
       << " transferred=" << transferred << std::endl;
 
     if (transferred < 0) {
-      std::cerr << "DEBUG write resulted in error: " << strerror(errno) << std::endl;
+      if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG write resulted in error: " << strerror(errno) << std::endl;
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         break;
       } else if (errno == ECONNRESET) {
@@ -224,8 +225,10 @@ void Handler::write() {
 
 void Handler::send(const Message& message) {
   auto str = message.to_string();
-  std::cerr << ">> TO" << std::endl;
-  std::cerr << str;
+  if (DEBUG_LEVEL >= 1) {
+    std::cerr << ">> TO" << std::endl;
+    std::cerr << str;
+  }
   this->send(str);
 }
 

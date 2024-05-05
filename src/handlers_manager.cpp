@@ -1,5 +1,7 @@
 #include "handlers_manager.h"
 
+#include "debug.h"
+
 HandlerAddEvent::HandlerAddEvent(int fd)
   : fd(fd) {
 }
@@ -58,7 +60,7 @@ void HandlersManager::add(int fd) {
   handler.connect_handlers_manager_remove(this->remove_listener());
   handler.start();
 
-  std::cerr << "DEBUG handlers manager connects = " << this->_handlers.size() << std::endl;
+  if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG handlers manager connects = " << this->_handlers.size() << std::endl;
 }
 
 void HandlersManager::remove(int fd) {

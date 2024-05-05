@@ -1,5 +1,7 @@
 #include "poller.h"
 
+#include "debug.h"
+
 #include <iostream>
 #include <sstream>
 
@@ -94,7 +96,7 @@ void Poller::start() {
       return;
     }
 
-    std::cerr << "DEBUG Poller fd with events count = " << poll_res << std::endl;
+    if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG Poller fd with events count = " << poll_res << std::endl;
 
     for (const auto& fd: this->_fds) {
       if (fd.revents > 0) {
@@ -104,27 +106,27 @@ void Poller::start() {
 
         if (fd.revents & POLLNVAL) {
           this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::InvalidFD);
-          std::cerr << "DEBUG InvalidFD event sent to handler with fd = " << handler.fd << std::endl;
+          if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG InvalidFD event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (fd.revents & POLLERR) {
           this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::Error);
-          std::cerr << "DEBUG Error event sent to handler with fd = " << handler.fd << std::endl;
+          if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG Error event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (fd.revents & POLLHUP) {
           this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::HangUp);
-          std::cerr << "DEBUG HangUp event sent to handler with fd = " << handler.fd << std::endl;
+          if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG HangUp event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (handler.flags & POLLIN && fd.revents & POLLIN) {
           this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::ReadyToRead);
-          std::cerr << "DEBUG ReadyToRead event sent to handler with fd = " << handler.fd << std::endl;
+          if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG ReadyToRead event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (handler.flags & POLLOUT && fd.revents & POLLOUT) {
           this->_event_loop->post<PollEvent>(handler.event_descriptor, handler.fd, PollEventType::ReadyToWrite);
-          std::cerr << "DEBUG ReadyToWrite event sent to handler with fd = " << handler.fd << std::endl;
+          if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG ReadyToWrite event sent to handler with fd = " << handler.fd << std::endl;
         }
       }
 

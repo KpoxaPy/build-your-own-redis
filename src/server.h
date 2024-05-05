@@ -7,8 +7,12 @@
 #include <string>
 #include <unordered_set>
 
+constexpr int DEFAULT_DEBUG_LEVEL = 0;
+
 struct ServerInfo {
   static ServerInfo build(std::size_t argc, char** argv);
+
+  int debug_level = DEFAULT_DEBUG_LEVEL;
 
   struct Server {
     int tcp_port;
