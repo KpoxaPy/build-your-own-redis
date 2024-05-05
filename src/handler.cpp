@@ -112,7 +112,7 @@ void Handler::process() {
   try {
     this->read();
 
-    while (auto maybe_message = this->_parser.try_parse()) {
+    while (auto maybe_message = this->_parser.try_parse(this->_talker->expected())) {
       const auto& message = maybe_message.value();
 
       if (DEBUG_LEVEL >= 1) std::cerr << "<< FROM" << std::endl << message;

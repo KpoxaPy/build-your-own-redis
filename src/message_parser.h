@@ -14,7 +14,7 @@ public:
 
   MessageParser(T& buffer);
 
-  std::optional<Message> try_parse();
+  std::optional<Message> try_parse(Message::Type expected);
 
 private:
   T& _buffer;

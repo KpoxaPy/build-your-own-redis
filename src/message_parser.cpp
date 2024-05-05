@@ -59,7 +59,7 @@ public:
     }
   }
 
-  std::optional<Message> parse() {
+  std::optional<Message> parse(Message::Type expected = Message::Type::Any) {
     if (this->size() == 0) {
       return {};
     }
@@ -87,6 +87,10 @@ public:
       throw std::runtime_error(ss.str());
     } else if (raw_message[0] == MESSAGE_BULK_STRING) {
       Message message = Message(Message::Type::BulkString);
+      if (expected == Message::Type::SyncResponse) {
+        message = Message(Message::Type::SyncResponse);
+      }
+
       if (raw_message.size() == 1) {
         std::ostringstream ss;
         ss << "Malformed length for bulk string message: " << raw_message;
@@ -163,18 +167,24 @@ MessageParser<T>::MessageParser(T& buffer)
 }
 
 template <typename T>
-std::optional<Message> MessageParser<T>::try_parse() {
+std::optional<Message> MessageParser<T>::try_parse(Message::Type expected) {
   while (this->_buffer.size() > 0) {
     if (this->_length_encoded_message_expected) {
       auto length = this->_length_encoded_message_expected.value();
-      if (this->_buffer.size() < length + DELIM.size()) {
+
+      std::size_t delim_size = DELIM.size();
+      if (expected == Message::Type::SyncResponse) {
+        delim_size = 0;
+      }
+
+      if (this->_buffer.size() < length + delim_size) {
         break;
       }
 
       auto first = this->_buffer.begin();
       auto last = this->_buffer.begin() + length;
       this->_raw_message_buffer.emplace_back(first, last);
-      this->_buffer.erase(first, last + DELIM.size());
+      this->_buffer.erase(first, last + delim_size);
 
       this->_length_encoded_message_expected.reset();
       continue;
@@ -211,6 +221,6 @@ std::optional<Message> MessageParser<T>::try_parse() {
   }
 
   ParseHelper<T> helper(this->_raw_message_buffer);
-  return helper.parse();
+  return helper.parse(expected);
 }
 

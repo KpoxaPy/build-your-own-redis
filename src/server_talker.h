@@ -10,6 +10,8 @@ public:
   std::optional<Message> talk() override;
   std::optional<Message> talk(const Message&) override;
 
+  Message::Type expected() override;
+
   void set_storage(StoragePtr);
   void set_server(ServerPtr);
 

@@ -10,16 +10,18 @@ class Message {
 public:
   enum class Type {
     Undefined,
+    Any,
     SimpleString,
     SimpleError,
     Integer,
     BulkString,
+    SyncResponse,
     Array,
   };
 
   using ValueType = std::variant<std::string, int, std::vector<Message>>;
 
-  Message(Type type, ValueType value = {});
+  Message(Type type = Type::Undefined, ValueType value = {});
 
   Type type() const;
   void setValue(ValueType&& value);

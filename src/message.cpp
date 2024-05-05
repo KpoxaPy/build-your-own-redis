@@ -40,6 +40,9 @@ std::string Message::to_string() const {
       ss << MESSAGE_BULK_STRING << data.size() << "\r\n";
       ss << data << "\r\n";
     }
+  } else if (this->_type == Message::Type::SyncResponse) {
+    const auto& data = std::get<std::string>(this->_value);
+    ss << MESSAGE_BULK_STRING << data.size() << "\r\n" << data;
   } else if (this->_type == Message::Type::Array) {
     const auto& elements = std::get<std::vector<Message>>(this->_value);
     if (elements.size() == 0) {
@@ -71,6 +74,9 @@ std::ostream& operator<<(std::ostream& stream, const Message& message) {
       stream << MESSAGE_BULK_STRING << data.size() << std::endl;
       stream << data << std::endl;
     }
+  } else if (message._type == Message::Type::SyncResponse) {
+    const auto& data = std::get<std::string>(message._value);
+    stream << MESSAGE_BULK_STRING << data.size() << std::endl << "[file contents, size = " << data.size() << "]";
   } else if (message._type == Message::Type::Array) {
     const auto& elements = std::get<std::vector<Message>>(message._value);
     if (elements.size() == 0) {

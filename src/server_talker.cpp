@@ -93,6 +93,10 @@ std::optional<Message> ServerTalker::talk(const Message& message) {
   }
 }
 
+Message::Type ServerTalker::expected() {
+  return Message::Type::Any;
+}
+
 void ServerTalker::set_storage(StoragePtr storage) {
   this->_storage = storage;
 }
