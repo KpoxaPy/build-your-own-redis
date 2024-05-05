@@ -150,7 +150,22 @@ void Server::start() {
   server_addr.sin_addr.s_addr = INADDR_ANY;
   server_addr.sin_port = htons(this->_info.server.tcp_port);
 
-  if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
+  bool binded = false;
+  for (std::size_t tries = 0; tries < 5; ++tries) {
+    if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
+      if (errno != EADDRINUSE) {
+        std::ostringstream ss;
+        ss << "Failed to bind to port " << this->_info.server.tcp_port << ": " << strerror(errno);
+        throw std::runtime_error(ss.str());
+      }
+      usleep(20000);
+    } else {
+      binded = true;
+      break;
+    }
+  }
+
+  if (!binded) {
     std::ostringstream ss;
     ss << "Failed to bind to port " << this->_info.server.tcp_port << ": " << strerror(errno);
     throw std::runtime_error(ss.str());
