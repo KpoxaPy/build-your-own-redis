@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstring>
 #include <fcntl.h>
 #include <iostream>
 #include <sstream>
@@ -69,11 +70,15 @@ void Handler::start() {
       this->close();
     } else {
       this->close();
-      throw std::runtime_error("Server got unexpected poll event");
+      throw std::runtime_error("Handler got unexpected poll event");
       // TODO make error more verbose
     }
   });
   this->setup_poll(false);
+
+  if (auto start_message = this->_talker->talk()) {
+    this->send(start_message.value());
+  }
 }
 
 void Handler::setup_poll(bool write) {
@@ -112,7 +117,9 @@ void Handler::process() {
       std::cerr << "<< FROM" << std::endl << message;
 
       if (auto reply = this->_talker->talk(message)) {
-        this->send(reply.value());
+        if (reply.value().type() != Message::Type::Undefined) {
+          this->send(reply.value());
+        }
       } else {
         this->close();
       }
@@ -129,12 +136,16 @@ void Handler::read() {
   while (true) {
     ssize_t read_size = ::read(this->_fd.value(), read_buffer.data(), READ_BUFFER_SIZE);
 
+    std::cerr << "DEBUG read from fd=" << this->_fd.value()
+      << " transferred=" << read_size << std::endl;
+
     if (read_size > 0) {
       this->_read_buffer.insert(this->_read_buffer.end(), read_buffer.begin(), read_buffer.begin() + read_size);
       continue;
     }
 
     if (read_size < 0) {
+      std::cerr << "DEBUG read resulted in error: " << strerror(errno) << std::endl;
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         break;
       } else if (errno == ECONNRESET) {
@@ -162,6 +173,8 @@ void Handler::write() {
     return;
   }
 
+  std::cerr << "DEBUG write_buffer size=" << this->_write_buffer.size() << std::endl;
+
   std::size_t transferred_total = 0;
   while (transferred_total < this->_write_buffer.size()) {
     const auto max_write = std::min(transferred_total + WRITE_BUFFER_SIZE, this->_write_buffer.size());
@@ -172,13 +185,18 @@ void Handler::write() {
       this->_write_buffer.begin() + max_write,
       write_buffer.begin());
 
+
     ssize_t transferred = ::write(
       this->_fd.value(),
       write_buffer.data(),
       write_buffer_len_filled
     );
 
+    std::cerr << "DEBUG write to fd=" << this->_fd.value()
+      << " transferred=" << transferred << std::endl;
+
     if (transferred < 0) {
+      std::cerr << "DEBUG write resulted in error: " << strerror(errno) << std::endl;
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         break;
       } else if (errno == ECONNRESET) {

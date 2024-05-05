@@ -57,6 +57,8 @@ void HandlersManager::add(int fd) {
   handler.connect_poller_remove(this->_poller_remove);
   handler.connect_handlers_manager_remove(this->remove_listener());
   handler.start();
+
+  std::cerr << "DEBUG handlers manager connects = " << this->_handlers.size() << std::endl;
 }
 
 void HandlersManager::remove(int fd) {

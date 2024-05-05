@@ -30,6 +30,8 @@ int main(int argc, char **argv) {
     poller->start();
 
     if (replica) {
+      replica->connect_poller_add(poller->add_listener());
+      replica->connect_poller_remove(poller->remove_listener());
       replica->start();
     }
 
