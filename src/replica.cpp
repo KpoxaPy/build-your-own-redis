@@ -1,7 +1,7 @@
 #include "replica.h"
 
-ReplicaPtr Replica::make() {
-  return std::make_shared<Replica>();
+Replica::Replica(EventLoopPtr event_loop) 
+  : _event_loop(event_loop) {
 }
 
 void Replica::set_storage(StoragePtr storage) {
@@ -12,6 +12,5 @@ void Replica::set_server(ServerPtr server) {
   this->_server = server;
 }
 
-void Replica::start(EventLoopPtr event_loop) {
-  this->_event_loop = event_loop;
+void Replica::start() {
 }

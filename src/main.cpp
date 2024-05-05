@@ -17,14 +17,25 @@ int main(int argc, char **argv) {
     auto handlers_manager = std::make_shared<HandlersManager>(event_loop);
     auto server = std::make_shared<Server>(event_loop, ServerInfo::build(argc, argv));
 
-    auto talkerBuilder = []() {
-      return std::make_shared<ServerTalker>();
-    };
+    const bool is_slave = server->info().replication.role == "slave";
+
+    ReplicaPtr replica;
+    if (is_slave) {
+      replica = std::make_shared<Replica>(event_loop);
+      replica->set_storage(storage);
+      replica->set_server(server);
+    }
 
     storage->start();
     poller->start();
 
-    handlers_manager->set_talker(talkerBuilder);
+    if (replica) {
+      replica->start();
+    }
+
+    handlers_manager->set_talker([]() {
+      return std::make_shared<ServerTalker>();
+    });
     handlers_manager->connect_poller_add(poller->add_listener());
     handlers_manager->connect_poller_remove(poller->remove_listener());
     handlers_manager->start();
@@ -33,14 +44,6 @@ int main(int argc, char **argv) {
     server->connect_poller_remove(poller->remove_listener());
     server->connect_handlers_manager_add(handlers_manager->add_listener());
     server->start();
-
-    ReplicaPtr replica;
-    if (server->info().replication.role == "slave") {
-      replica = Replica::make();
-      replica->set_storage(storage);
-      replica->set_server(server);
-      replica->start(event_loop);
-    }
 
     event_loop->start();
 
