@@ -157,7 +157,7 @@ void Server::start() {
         break;
       }
       if (DEBUG_LEVEL >= 2) std::cerr << "Failed to bind, address in use, retrying in 20ms, try #" << tries + 1 << std::endl;
-      usleep(20000);
+      usleep(100000);
     } else {
       binded = true;
       break;
