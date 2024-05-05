@@ -139,7 +139,7 @@ void Server::start() {
   this->_server_fd = server_fd;
 
   int reuse = 1;
-  if (setsockopt(*this->_server_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
+  if (setsockopt(*this->_server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
     std::ostringstream ss;
     ss << "Setsockopt failed: " << strerror(errno);
     throw std::runtime_error(ss.str());
@@ -152,7 +152,7 @@ void Server::start() {
 
   bool binded = false;
   const int retry_ms = 250;
-  const int max_tries = 50;
+  const int max_tries = 8;
   for (std::size_t tries = 0; tries < max_tries; ++tries) {
     if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
       if (errno != EADDRINUSE) {
