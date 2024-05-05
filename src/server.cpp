@@ -1,5 +1,6 @@
 #include "server.h"
 
+#include "debug.h"
 #include "handlers_manager.h"
 #include "poller.h"
 #include "utils.h"
@@ -175,6 +176,8 @@ void Server::start() {
       this->_server_fd.value(),
       PollEventTypeList{PollEventType::ReadyToRead},
       accept_descriptor);
+  
+  if (DEBUG_LEVEL >= 1) std::cerr << "SEBUG Server ready!" << std::endl;
 }
 
 std::optional<int> Server::accept() {
