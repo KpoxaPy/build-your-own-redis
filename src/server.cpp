@@ -151,7 +151,7 @@ void Server::start() {
   server_addr.sin_port = htons(this->_info.server.tcp_port);
 
   bool binded = false;
-  const int retry_ms = 100;
+  const int retry_ms = 250;
   const int max_tries = 50;
   for (std::size_t tries = 0; tries < max_tries; ++tries) {
     if (bind(*this->_server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
