@@ -1,5 +1,6 @@
 #include "events.h"
 #include "poller.h"
+#include "replica.h"
 #include "server.h"
 #include "storage.h"
 #include "handlers_manager.h"
@@ -14,13 +15,18 @@ int main(int argc, char **argv) {
     auto handlers_manager = HandlersManager::make();
     auto server = Server::make(ServerInfo::build(argc, argv));
 
-    handlers_manager->set_server(server);
-    handlers_manager->set_storage(storage);
-
     poller->start(event_loop);
     storage->start(event_loop);
     handlers_manager->start(event_loop);
     server->start(event_loop);
+
+    ReplicaPtr replica;
+    if (server->info().replication.role == "slave") {
+      replica = Replica::make();
+      replica->set_storage(storage);
+      replica->set_server(server);
+      replica->start(event_loop);
+    }
 
     event_loop->start();
 

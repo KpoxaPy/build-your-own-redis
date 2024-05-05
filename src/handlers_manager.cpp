@@ -6,14 +6,6 @@ HandlersMangerPtr HandlersManager::make() {
   return std::make_shared<HandlersManager>();
 }
 
-void HandlersManager::set_server(ServerPtr server) {
-  this->_server = server;
-}
-
-void HandlersManager::set_storage(StoragePtr storage) {
-  this->_storage = storage;
-}
-
 void HandlersManager::start(EventLoopManagerPtr event_loop) {
   this->_event_loop = event_loop;
 
@@ -26,14 +18,6 @@ void HandlersManager::start(EventLoopManagerPtr event_loop) {
     auto& remove_event = static_cast<const HandlerRemoveEvent&>(event);
     this->remove(remove_event.fd);
   });
-}
-
-ServerPtr HandlersManager::server() {
-  return this->_server;
-}
-
-StoragePtr HandlersManager::storage() {
-  return this->_storage;
 }
 
 void HandlersManager::add(int fd) {
