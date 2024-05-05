@@ -33,8 +33,11 @@ int main(int argc, char **argv) {
       replica->start();
     }
 
-    handlers_manager->set_talker([]() {
-      return std::make_shared<ServerTalker>();
+    handlers_manager->set_talker([server, storage]() {
+      auto talker = std::make_shared<ServerTalker>();
+      talker->set_storage(storage);
+      talker->set_server(server);
+      return talker;
     });
     handlers_manager->connect_poller_add(poller->add_listener());
     handlers_manager->connect_poller_remove(poller->remove_listener());
