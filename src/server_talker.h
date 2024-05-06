@@ -5,10 +5,11 @@
 #include "server.h"
 #include "storage.h"
 
+#include <deque>
+
 class ServerTalker : public Talker {
 public:
-  std::optional<Message> talk() override;
-  std::optional<Message> talk(const Message&) override;
+  void listen(Message message) override;
 
   Message::Type expected() override;
 

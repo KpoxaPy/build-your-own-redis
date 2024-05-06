@@ -11,6 +11,8 @@ public:
   enum class Type {
     Undefined,
     Any,
+    Leave,
+
     SimpleString,
     SimpleError,
     Integer,

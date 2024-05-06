@@ -64,7 +64,7 @@ void Handler::start() {
     auto& poll_event = static_cast<const PollEvent&>(event);
 
     if (poll_event.type == PollEventType::ReadyToRead) {
-      this->process();
+      this->process_read();
     } else if (poll_event.type == PollEventType::ReadyToWrite) {
       this->write();
     } else if (poll_event.type == PollEventType::HangUp) {
@@ -77,9 +77,9 @@ void Handler::start() {
   });
   this->setup_poll(false);
 
-  if (auto start_message = this->_talker->talk()) {
-    this->send(start_message.value());
-  }
+  this->_event_loop->repeat([this]() {
+    this->process_write();
+  });
 }
 
 void Handler::setup_poll(bool write) {
@@ -108,22 +108,29 @@ void Handler::close() {
   }
 }
 
-void Handler::process() {
+void Handler::process_read() {
   try {
     this->read();
 
     while (auto maybe_message = this->_parser.try_parse(this->_talker->expected())) {
-      const auto& message = maybe_message.value();
+      if (DEBUG_LEVEL >= 1) std::cerr << "<< FROM" << std::endl << maybe_message.value();
+      this->_talker->listen(std::move(maybe_message.value()));
+    }
+  } catch (const ConnReset&) {
+    this->close();
+  }
 
-      if (DEBUG_LEVEL >= 1) std::cerr << "<< FROM" << std::endl << message;
+  this->process_write();
+}
 
-      if (auto reply = this->_talker->talk(message)) {
-        if (reply.value().type() != Message::Type::Undefined) {
-          this->send(reply.value());
-        }
-      } else {
+void Handler::process_write() {
+  try {
+    while (auto maybe_message = this->_talker->say()) {
+      if (maybe_message.value().type() == Message::Type::Leave) {
         this->close();
+        break;
       }
+      this->send(maybe_message.value());
     }
   } catch (const ConnReset&) {
     this->close();

@@ -99,7 +99,9 @@ class InfoCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  InfoCommand(std::vector<std::string> args = {});
+  template <typename... Args>
+  InfoCommand(Args&&... args) : InfoCommand({std::forward<Args>(args)...}) {}
+  InfoCommand(std::initializer_list<std::string> args = {});
 
   const std::vector<std::string>& args() const;
 
@@ -113,7 +115,9 @@ class ReplConfCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  ReplConfCommand(std::vector<std::string> args = {});
+  template <typename... Args>
+  ReplConfCommand(Args&&... args) : ReplConfCommand({std::forward<Args>(args)...}) {}
+  ReplConfCommand(std::initializer_list<std::string> args = {});
 
   const std::vector<std::string>& args() const;
 
@@ -127,7 +131,9 @@ class PsyncCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  PsyncCommand(std::vector<std::string> args = {});
+  template <typename... Args>
+  PsyncCommand(Args&&... args) : PsyncCommand({std::forward<Args>(args)...}) {}
+  PsyncCommand(std::initializer_list<std::string> args = {});
 
   const std::vector<std::string>& args() const;
 

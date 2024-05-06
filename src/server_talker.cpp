@@ -2,22 +2,18 @@
 
 #include "command.h"
 
-std::optional<Message> ServerTalker::talk() {
-  return {};
-}
-
-std::optional<Message> ServerTalker::talk(const Message& message) {
+void ServerTalker::listen(Message message) {
   try {
     auto command = Command::try_parse(message);
     auto type = command->type();
 
     if (type == CommandType::Ping) {
-      return Message(Message::Type::SimpleString, {"PONG"});
+      this->next_say(Message::Type::SimpleString, "PONG");
 
     } else if (type == CommandType::Echo) {
       auto& echo_command = dynamic_cast<EchoCommand&>(*command);
 
-      return Message(Message::Type::BulkString, echo_command.data());
+      this->next_say(Message::Type::BulkString, echo_command.data());
 
     } else if (type == CommandType::Set) {
       auto& set_command = dynamic_cast<SetCommand&>(*command);
@@ -29,23 +25,24 @@ std::optional<Message> ServerTalker::talk(const Message& message) {
         stored_value.setExpire(std::chrono::milliseconds{set_command.expire_ms().value()});
       }
 
-      return Message(Message::Type::SimpleString, "OK");
+      this->next_say(Message::Type::SimpleString, "OK");
 
     } else if (type == CommandType::Get) {
       auto& get_command = static_cast<GetCommand&>(*command);
 
       auto it = this->_storage->storage.find(get_command.key());
       if (it == this->_storage->storage.end()) {
-        return Message(Message::Type::BulkString, {});
+        this->next_say(Message::Type::BulkString);
+        return;
       }
       auto& value = it->second;
 
       if (value.getExpire() && Clock::now() >= value.getExpire()) {
         this->_storage->storage.erase(get_command.key());
-        return Message(Message::Type::BulkString, {});
+        this->next_say(Message::Type::BulkString);
       }
 
-      return Message(Message::Type::BulkString, value.data());
+      this->next_say(Message::Type::BulkString, value.data());
 
     } else if (type == CommandType::Info) {
       auto& info_command = static_cast<InfoCommand&>(*command);
@@ -69,12 +66,12 @@ std::optional<Message> ServerTalker::talk(const Message& message) {
         default_parts();
       }
 
-      return Message(Message::Type::BulkString, this->_server->info().to_string(info_parts));
+      this->next_say(Message::Type::BulkString, this->_server->info().to_string(info_parts));
 
     } else if (type == CommandType::ReplConf) {
       auto& cmd = static_cast<ReplConfCommand&>(*command);
 
-      return Message(Message::Type::SimpleString, {"OK"});
+      this->next_say(Message::Type::SimpleString, "OK");
 
     } else if (type == CommandType::Psync) {
       auto& cmd = static_cast<PsyncCommand&>(*command);
@@ -83,13 +80,14 @@ std::optional<Message> ServerTalker::talk(const Message& message) {
       ss << "FULLRESYNC"
         << " " << this->_server->info().replication.master_replid
         << " " << this->_server->info().replication.master_repl_offset;
-      return Message(Message::Type::SimpleString, ss.str());
+      this->next_say(Message::Type::SimpleString, ss.str());
+      this->next_say(Message::Type::SyncResponse, "1234567890");
 
     } else {
-      return Message(Message::Type::SimpleError, {"unimplemented command"});
+      this->next_say(Message::Type::SimpleError, "unimplemented command");
     }
   } catch (const CommandParseError& err) {
-    return Message(Message::Type::SimpleError, {err.what()});
+    this->next_say(Message::Type::SimpleError, err.what());
   }
 }
 

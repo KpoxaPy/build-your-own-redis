@@ -14,12 +14,12 @@ enum : int {
   WAIT_FOR_RDB_FILE_SYNC = 6,
 };
 
-std::optional<Message> ReplicaTalker::talk() {
+ReplicaTalker::ReplicaTalker() {
   this->_state = WAIT_FIRST_PONG;
-  return PingCommand().construct();
+  this->_pending.push_back(PingCommand().construct());
 }
 
-std::optional<Message> ReplicaTalker::talk(const Message& message) {
+void ReplicaTalker::listen(Message message) {
   if (this->_state == WAIT_FIRST_PONG) {
     if (message.type() == Message::Type::SimpleString) {
       auto str = get<std::string>(message.getValue());
@@ -27,7 +27,7 @@ std::optional<Message> ReplicaTalker::talk(const Message& message) {
 
       if (str == "pong") {
         this->_state = WAIT_OK_FOR_REPLCONF_PORT;
-        return ReplConfCommand({"listening-port", std::to_string(this->_server->info().server.tcp_port)}).construct();
+        this->next_say<ReplConfCommand>("listening-port", std::to_string(this->_server->info().server.tcp_port));
       }
     }
   } else if (this->_state == WAIT_OK_FOR_REPLCONF_PORT) {
@@ -37,7 +37,7 @@ std::optional<Message> ReplicaTalker::talk(const Message& message) {
 
       if (str == "ok") {
         this->_state = WAIT_OK_FOR_REPLCINF_CAPA;
-        return ReplConfCommand({"capa", "psync2"}).construct();
+        this->next_say<ReplConfCommand>("capa", "psync2");
       }
     }
   } else if (this->_state == WAIT_OK_FOR_REPLCINF_CAPA) {
@@ -47,7 +47,7 @@ std::optional<Message> ReplicaTalker::talk(const Message& message) {
 
       if (str == "ok") {
         this->_state = WAIT_FOR_PSYNC_ANSWER;
-        return PsyncCommand({"?", "-1"}).construct();
+        this->next_say<PsyncCommand>("?", "-1");
       }
     }
   } else if (this->_state == WAIT_FOR_PSYNC_ANSWER) {
@@ -55,20 +55,17 @@ std::optional<Message> ReplicaTalker::talk(const Message& message) {
       auto str = get<std::string>(message.getValue());
 
       this->_state = WAIT_FOR_RDB_FILE_SYNC;
-      return Message(Message::Type::Undefined);
     }
   } else if (this->_state == WAIT_FOR_RDB_FILE_SYNC) {
     if (message.type() == Message::Type::SyncResponse) {
       // auto str = get<std::string>(message.getValue());
 
       this->_state = UNDEFINED;
-      return Message();
     }
+  } else if (this->_state == UNDEFINED) {
   } else {
-    return Message();
+    this->next_say(Message::Type::Leave);
   }
-
-  return {};
 }
 
 Message::Type ReplicaTalker::expected() {

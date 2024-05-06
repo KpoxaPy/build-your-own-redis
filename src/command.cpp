@@ -266,8 +266,8 @@ CommandPtr InfoCommand::try_parse(const Message& message) {
   return command;
 }
 
-InfoCommand::InfoCommand(std::vector<std::string> args)
-  : _args(std::move(args)) {
+InfoCommand::InfoCommand(std::initializer_list<std::string> args)
+  : _args(args) {
   this->_type = CommandType::Info;
 }
 
@@ -303,8 +303,8 @@ CommandPtr ReplConfCommand::try_parse(const Message& message) {
   return command;
 }
 
-ReplConfCommand::ReplConfCommand(std::vector<std::string> args)
-  : _args(std::move(args)) {
+ReplConfCommand::ReplConfCommand(std::initializer_list<std::string> args)
+  : _args(args) {
   this->_type = CommandType::ReplConf;
 }
 
@@ -340,8 +340,8 @@ CommandPtr PsyncCommand::try_parse(const Message& message) {
   return command;
 }
 
-PsyncCommand::PsyncCommand(std::vector<std::string> args)
-  : _args(std::move(args)) {
+PsyncCommand::PsyncCommand(std::initializer_list<std::string> args)
+  : _args(args) {
   this->_type = CommandType::Psync;
 }
 

@@ -40,10 +40,12 @@ private:
   void setup_poll(bool write = false);
   void close();
 
-  void process();
-  void read();
+  void process_read();
+  void process_write();
 
+  void read();
   void write();
+
   void send(const Message& message);
   void send(const std::string& str);
 };
