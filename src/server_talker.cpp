@@ -43,6 +43,7 @@ void ServerTalker::listen(Message message) {
       if (value.getExpire() && Clock::now() >= value.getExpire()) {
         this->_storage->storage.erase(get_command.key());
         this->next_say(Message::Type::BulkString);
+        return;
       }
 
       this->next_say(Message::Type::BulkString, value.data());
