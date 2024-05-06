@@ -1,6 +1,9 @@
 #include "server_talker.h"
 
+#include "base64.h"
 #include "command.h"
+
+constexpr char * dummy_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 
 void ServerTalker::listen(Message message) {
   try {
@@ -81,7 +84,7 @@ void ServerTalker::listen(Message message) {
         << " " << this->_server->info().replication.master_replid
         << " " << this->_server->info().replication.master_repl_offset;
       this->next_say(Message::Type::SimpleString, ss.str());
-      this->next_say(Message::Type::SyncResponse, "1234567890");
+      this->next_say(Message::Type::SyncResponse, base64_decode(dummy_rdb_file));
 
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");
