@@ -76,7 +76,8 @@ std::ostream& operator<<(std::ostream& stream, const Message& message) {
     }
   } else if (message._type == Message::Type::SyncResponse) {
     const auto& data = std::get<std::string>(message._value);
-    stream << MESSAGE_BULK_STRING << data.size() << std::endl << "[file contents, size = " << data.size() << "]";
+    stream << MESSAGE_BULK_STRING << data.size() << std::endl;
+    stream << "[file contents, size = " << data.size() << "]" << std::endl;
   } else if (message._type == Message::Type::Array) {
     const auto& elements = std::get<std::vector<Message>>(message._value);
     if (elements.size() == 0) {

@@ -234,7 +234,7 @@ void Handler::send(const Message& message) {
   auto str = message.to_string();
   if (DEBUG_LEVEL >= 1) {
     std::cerr << ">> TO" << std::endl;
-    std::cerr << str;
+    std::cerr << message;
   }
   this->send(str);
 }
