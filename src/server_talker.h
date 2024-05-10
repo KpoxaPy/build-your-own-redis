@@ -2,21 +2,27 @@
 
 #include "talker.h"
 
+#include "command.h"
+#include "events.h"
 #include "server.h"
-#include "storage.h"
-
-#include <deque>
 
 class ServerTalker : public Talker {
 public:
+  ServerTalker(EventLoopPtr event_loop);
+
   void listen(Message message) override;
 
   Message::Type expected() override;
 
-  void set_storage(StoragePtr);
   void set_server(ServerPtr);
 
+  void connect_storage_command(SlotDescriptor<Message>);
+  void connect_replica_add(SlotDescriptor<void>);
+
 private:
-  StoragePtr _storage;
+  SlotDescriptor<Message> _storage_command;
+  SlotDescriptor<void> _replica_add;
+  EventLoopPtr _event_loop;
+
   ServerPtr _server;
 };

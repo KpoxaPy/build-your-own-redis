@@ -2,50 +2,35 @@
 
 #include "debug.h"
 
-HandlerAddEvent::HandlerAddEvent(int fd)
-  : fd(fd) {
-}
-
-HandlerRemoveEvent::HandlerRemoveEvent(int fd)
-  : fd(fd) {
-}
-
 HandlersManager::HandlersManager(EventLoopPtr event_loop)
   : _event_loop(event_loop) {
-  this->_add_listener = this->_event_loop->make_desciptor();
-  this->_remove_listener = this->_event_loop->make_desciptor();
+  this->_slot_add = this->_event_loop->listen([this](int fd) {
+    this->add(fd);
+  });
+
+  this->_slot_remove = this->_event_loop->listen([this](int fd) {
+    this->remove(fd);
+  });
 }
 
 void HandlersManager::set_talker(TalkerBuilder builder) {
-  this->_talker_builder = builder;
+  this->_talker_builder = std::move(builder);
 }
 
-void HandlersManager::connect_poller_add(EventDescriptor descriptor) {
-  this->_poller_add = descriptor;
+void HandlersManager::connect_poller_add(SlotDescriptor<void> descriptor) {
+  this->_poller_add = std::move(descriptor);
 }
 
-void HandlersManager::connect_poller_remove(EventDescriptor descriptor) {
-  this->_poller_remove = descriptor;
+void HandlersManager::connect_poller_remove(SlotDescriptor<void> descriptor) {
+  this->_poller_remove = std::move(descriptor);
 }
 
-EventDescriptor HandlersManager::add_listener() {
-  return this->_add_listener;
+SlotDescriptor<void> HandlersManager::add() {
+  return this->_slot_add->descriptor();
 }
 
-EventDescriptor HandlersManager::remove_listener() {
-  return this->_remove_listener;
-}
-
-void HandlersManager::start() {
-  this->_event_loop->listen(this->_add_listener, [this](const Event& event) {
-    auto& add_event = static_cast<const HandlerAddEvent&>(event);
-    this->add(add_event.fd);
-  });
-
-  this->_event_loop->listen(this->_remove_listener, [this](const Event& event) {
-    auto& remove_event = static_cast<const HandlerRemoveEvent&>(event);
-    this->remove(remove_event.fd);
-  });
+SlotDescriptor<void> HandlersManager::remove() {
+  return this->_slot_remove->descriptor();
 }
 
 void HandlersManager::add(int fd) {
@@ -57,8 +42,7 @@ void HandlersManager::add(int fd) {
 
   handler.connect_poller_add(this->_poller_add);
   handler.connect_poller_remove(this->_poller_remove);
-  handler.connect_handlers_manager_remove(this->remove_listener());
-  handler.start();
+  handler.connect_handlers_manager_remove(this->remove());
 
   if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG handlers manager connects = " << this->_handlers.size() << std::endl;
 }

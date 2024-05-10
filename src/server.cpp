@@ -107,23 +107,48 @@ std::string ServerInfo::Replication::to_string() const {
 
 Server::Server(EventLoopPtr event_loop, ServerInfo info)
     : _event_loop(event_loop)
-    , _info(std::move(info)) {
+    , _info(std::move(info))
+{
+  this->_is_replica = this->_info.replication.role == "slave";
+
+  this->_slot_accept = this->_event_loop->listen([this](PollEventType type) {
+    if (type != PollEventType::ReadyToRead) {
+      throw std::runtime_error("Server got unexpected poll event");
+      // TODO make error more verbose
+    }
+
+    try {
+      while (auto maybe_client_fd = this->accept()) {
+        this->_handlers_manager_add.emit(maybe_client_fd.value());
+      }
+    } catch (std::exception& e) {
+      std::cerr << "Client accepting error: " << e.what() << std::endl;
+    }
+  });
+
+  this->_event_loop->post([this]() {
+    this->start();
+  });
 }
 
 Server::~Server() {
   this->close();
 }
 
-void Server::connect_poller_add(EventDescriptor descriptor) {
-  this->_poller_add = descriptor;
+void Server::connect_poller_add(SlotDescriptor<void> descriptor) {
+  this->_poller_add = std::move(descriptor);
 }
 
-void Server::connect_poller_remove(EventDescriptor descriptor) {
-  this->_poller_remove = descriptor;
+void Server::connect_poller_remove(SlotDescriptor<void> descriptor) {
+  this->_poller_remove = std::move(descriptor);
 }
 
-void Server::connect_handlers_manager_add(EventDescriptor descriptor) {
-  this->_handlers_manager_add = descriptor;
+void Server::connect_handlers_manager_add(SlotDescriptor<void> descriptor) {
+  this->_handlers_manager_add = std::move(descriptor);
+}
+
+bool Server::is_replica() const {
+  return this->_is_replica;
 }
 
 void Server::start() {
@@ -178,28 +203,11 @@ void Server::start() {
     throw std::runtime_error(ss.str());
   }
 
-  auto accept_descriptor = _event_loop->make_desciptor();
-  this->_event_loop->listen(accept_descriptor, [this](const Event& event) {
-    auto& poll_event = static_cast<const PollEvent&>(event);
-
-    if (poll_event.type != PollEventType::ReadyToRead) {
-      throw std::runtime_error("Server got unexpected poll event");
-      // TODO make error more verbose
-    }
-
-    try {
-      while (auto maybe_client_fd = this->accept()) {
-        this->_event_loop->post<HandlerAddEvent>(this->_handlers_manager_add, maybe_client_fd.value());
-      }
-    } catch (std::exception& e) {
-      std::cerr << "Client accepting error: " << e.what() << std::endl;
-    }
-  });
-  this->_event_loop->post<PollAddEvent>(
+  this->_poller_add.emit(
       this->_poller_add,
       this->_server_fd.value(),
       PollEventTypeList{PollEventType::ReadyToRead},
-      accept_descriptor);
+      this->_slot_accept->descriptor());
   
   if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Server ready!" << std::endl;
 }
@@ -228,7 +236,7 @@ ServerInfo& Server::info() {
 
 void Server::close() {
   if (this->_server_fd) {
-    this->_event_loop->post<PollRemoveEvent>(this->_poller_remove, this->_server_fd.value());
+    this->_poller_remove.emit(this->_server_fd.value());
     ::close(this->_server_fd.value());
     this->_server_fd.reset();
   }

@@ -2,6 +2,8 @@
 
 #include <iostream>
 
+using namespace _NS_Events;
+
 EventLoopPtr EventLoop::make() {
   return std::make_shared<EventLoop>();
 }
@@ -9,10 +11,6 @@ EventLoopPtr EventLoop::make() {
 EventLoop::EventLoop(std::size_t max_unqueue_events)
   : _max_unqueue_events(max_unqueue_events)
 {
-}
-
-EventDescriptor EventLoop::make_desciptor() {
-  return this->_last++;
 }
 
 void EventLoop::repeat(Func func) {
@@ -23,41 +21,47 @@ void EventLoop::post(Func func) {
   this->_onetime_jobs.emplace(std::move(func));
 }
 
-void EventLoop::listen(EventDescriptor descriptor, EventFunc func) {
-  if (descriptor == UNDEFINED_EVENT) {
-    return;
+std::pair<EventDescriptor, SlotId> EventLoop::listen(Slot slot) {
+  const auto descriptor = this->_next_descriptor++;
+  const auto slot_id = this->_next_slot_id++;
+
+  auto it = this->_slots.find(descriptor);
+  if (it != this->_slots.end()) {
+    this->unlisten(it->second);
   }
 
-  auto& listeners = this->_listeners[descriptor];
-  listeners.emplace_back(std::move(func));
+  this->_slot_registry.emplace(slot_id, std::move(slot));
+  this->_slots[descriptor] = slot_id;
+
+  return {descriptor, slot_id};
 }
 
-void EventLoop::post(EventDescriptor descriptor, EventPtr event) {
-  if (descriptor == UNDEFINED_EVENT) {
-    return;
-  }
+void EventLoop::unlisten(SlotId id) {
+  this->_slot_registry.erase(id);
+}
 
-  event->_descriptor = descriptor;
-  this->_events.emplace(std::move(event));
+void EventLoop::emit(Signal signal) {
+  this->_events.emplace(std::move(signal));
 }
 
 void EventLoop::start() {
   while (true) {
-    for (auto& job: this->_repeated_jobs) {
+    while (this->_onetime_jobs.size() > 0) {
       try {
+        auto job = std::move(this->_onetime_jobs.front());
+        this->_onetime_jobs.pop();
         job();
       } catch (const std::exception& exception) {
-        std::cerr << "EventLoop caught exception while repeating job: " << std::endl
+        std::cerr << "EventLoop caught exception while onetime job: " << std::endl
           << exception.what() << std::endl;
       }
     }
 
-    while (this->_onetime_jobs.size() > 0) {
+    for (const auto& job: this->_repeated_jobs) {
       try {
-        this->_onetime_jobs.front()();
-        this->_onetime_jobs.pop();
+        job();
       } catch (const std::exception& exception) {
-        std::cerr << "EventLoop caught exception while onetime job: " << std::endl
+        std::cerr << "EventLoop caught exception while repeating job: " << std::endl
           << exception.what() << std::endl;
       }
     }
@@ -68,23 +72,27 @@ void EventLoop::start() {
     }
 
     for (std::size_t i = 0; i < unqueue_size; ++i) {
-      const auto& event = *this->_events.front();
+      auto signal = std::move(this->_events.front());
+      this->_events.pop();
 
-      auto listeners_it = this->_listeners.find(event._descriptor);
-      if (listeners_it != this->_listeners.end()) {
-        for (const auto& listener: listeners_it->second) {
-          try {
-            listener(event);
-          } catch (const std::exception& exception) {
-            std::cerr << "EventLoop caught exception while processing event: " << std::endl
-              << exception.what() << std::endl;
-          }
-        }
-      } else {
-        std::cerr << "Unqueued event(" << event._descriptor << ") with 0 listeners" << std::endl;
+      const auto id_it = this->_slots.find(signal._descriptor);
+      if (id_it == this->_slots.end()) {
+        std::cerr << "Unqueued event(id=" << signal._descriptor << ") with no slot associated" << std::endl;
+        continue;
       }
 
-      this->_events.pop();
+      const auto slot_it = this->_slot_registry.find(id_it->second);
+      if (slot_it == this->_slot_registry.end()) {
+        std::cerr << "Unqueued event(id=" << signal._descriptor << ") with removed slot" << std::endl;
+        continue;
+      }
+
+      try {
+        signal.deliver(slot_it->second);
+      } catch (const std::exception& exception) {
+        std::cerr << "EventLoop caught exception while processing event: " << std::endl
+                  << exception.what() << std::endl;
+      }
     }
   }
 }

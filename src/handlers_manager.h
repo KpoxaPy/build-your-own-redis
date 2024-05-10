@@ -6,20 +6,6 @@
 
 #include <memory>
 
-class HandlerAddEvent : public Event {
-public:
-  HandlerAddEvent(int fd);
-
-  int fd;
-};
-
-class HandlerRemoveEvent : public Event {
-public:
-  HandlerRemoveEvent(int fd);
-
-  int fd;
-};
-
 class HandlersManager {
 public:
   using TalkerBuilder = std::function<TalkerPtr()>;
@@ -28,17 +14,18 @@ public:
 
   void set_talker(TalkerBuilder);
 
-  void connect_poller_add(EventDescriptor);
-  void connect_poller_remove(EventDescriptor);
-  EventDescriptor add_listener();
-  EventDescriptor remove_listener();
-  void start();
+  void connect_poller_add(SlotDescriptor<void>);
+  void connect_poller_remove(SlotDescriptor<void>);
+  SlotDescriptor<void> add();
+  SlotDescriptor<void> remove();
 
 private:
-  EventDescriptor _poller_add = UNDEFINED_EVENT;
-  EventDescriptor _poller_remove = UNDEFINED_EVENT;
-  EventDescriptor _add_listener = UNDEFINED_EVENT;
-  EventDescriptor _remove_listener = UNDEFINED_EVENT;
+  SlotDescriptor<void> _poller_add;
+  SlotDescriptor<void> _poller_remove;
+
+  SlotHolderPtr<void> _slot_add;
+  SlotHolderPtr<void> _slot_remove;
+
   EventLoopPtr _event_loop;
 
   TalkerBuilder _talker_builder;

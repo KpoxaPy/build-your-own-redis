@@ -9,6 +9,8 @@
 
 #include <iostream>
 
+class StorageMiddleware;
+
 int main(int argc, char **argv) {
   try {
     auto info = ServerInfo::build(argc, argv);
@@ -16,44 +18,44 @@ int main(int argc, char **argv) {
 
     auto event_loop = EventLoop::make();
 
-    auto storage = std::make_shared<Storage>(event_loop);
     auto poller = std::make_shared<Poller>(event_loop);
+    auto storage = std::make_shared<Storage>(event_loop);
+    auto storage_middleware = std::make_shared<StorageMiddleware>(event_loop);
     auto handlers_manager = std::make_shared<HandlersManager>(event_loop);
     auto server = std::make_shared<Server>(event_loop, info);
 
-    const bool is_slave = server->info().replication.role == "slave";
-
     ReplicaPtr replica;
-    if (is_slave) {
+    if (server->is_replica()) {
       replica = std::make_shared<Replica>(event_loop);
-      replica->set_storage(storage);
       replica->set_server(server);
     }
 
-    storage->start();
-    poller->start();
+    storage_middleware->connect_storage_command(storage->command());
 
     if (replica) {
-      replica->connect_poller_add(poller->add_listener());
-      replica->connect_poller_remove(poller->remove_listener());
-      replica->start();
+      replica->connect_storage_command(storage_middleware->command());
+      replica->connect_poller_add(poller->add());
+      replica->connect_poller_remove(poller->remove());
     }
 
-    handlers_manager->set_talker([server, storage]() {
-      auto talker = std::make_shared<ServerTalker>();
-      talker->set_storage(storage);
+    handlers_manager->set_talker([event_loop, server, storage_middleware]() {
+      auto talker = std::make_shared<ServerTalker>(event_loop);
       talker->set_server(server);
+
+      talker->connect_storage_command(storage_middleware->command());
+      talker->connect_replica_add(storage_middleware->add_replica());
+
       return talker;
     });
-    handlers_manager->connect_poller_add(poller->add_listener());
-    handlers_manager->connect_poller_remove(poller->remove_listener());
-    handlers_manager->start();
+    handlers_manager->connect_poller_add(poller->add());
+    handlers_manager->connect_poller_remove(poller->remove());
 
-    server->connect_poller_add(poller->add_listener());
-    server->connect_poller_remove(poller->remove_listener());
-    server->connect_handlers_manager_add(handlers_manager->add_listener());
-    server->start();
+    server->connect_poller_add(poller->add());
+    server->connect_poller_remove(poller->remove());
+    server->connect_handlers_manager_add(handlers_manager->add());
 
+    storage->start();
+    storage_middleware->start();
     event_loop->start();
 
     return 0;

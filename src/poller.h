@@ -17,51 +17,28 @@ enum class PollEventType {
 };
 using PollEventTypeList = std::unordered_set<PollEventType>;
 
-class PollAddEvent : public Event {
-public:
-  PollAddEvent(int fd, PollEventTypeList types, EventDescriptor expected_descriptor);
-
-  int fd;
-  PollEventTypeList types;
-  EventDescriptor expected_descriptor;
-};
-
-class PollRemoveEvent : public Event {
-public:
-  PollRemoveEvent(int fd);
-
-  int fd;
-};
-
-class PollEvent : public Event {
-public:
-  PollEvent(int fd, PollEventType);
-
-  int fd;
-  PollEventType type;
-};
-
 class Poller {
 public:
   Poller(EventLoopPtr event_loop);
 
-  EventDescriptor add_listener();
-  EventDescriptor remove_listener();
-  void start();
+  SlotDescriptor<void> add();
+  SlotDescriptor<void> remove();
 
 private:
   struct SocketEventHandler {
     int fd;
     short flags;
-    EventDescriptor event_descriptor;
+    SlotDescriptor<void> slot;
     std::size_t pos_in_fds;
   };
 
-  EventDescriptor _add_listener = UNDEFINED_EVENT;
-  EventDescriptor _remove_listener = UNDEFINED_EVENT;
+  SlotHolderPtr<void> _slot_add;
+  SlotHolderPtr<void> _slot_remove;
   EventLoopPtr _event_loop;
 
   std::vector<pollfd> _fds;
   std::unordered_map<int, SocketEventHandler> _handlers;
+
+  void start();
 };
 using PollerPtr = std::shared_ptr<Poller>;

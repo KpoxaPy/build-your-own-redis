@@ -30,7 +30,11 @@ std::string addr_to_string(const struct addrinfo* info) {
 }
 
 Replica::Replica(EventLoopPtr event_loop) 
-  : _event_loop(event_loop) {
+  : _event_loop(event_loop)
+{
+  this->_event_loop->post([this]() {
+    this->start();
+  });
 }
 
 void Replica::set_storage(StoragePtr storage) {
@@ -41,12 +45,12 @@ void Replica::set_server(ServerPtr server) {
   this->_server = server;
 }
 
-void Replica::connect_poller_add(EventDescriptor descriptor) {
-  this->_poller_add = descriptor;
+void Replica::connect_poller_add(SlotDescriptor<void> descriptor) {
+  this->_poller_add = std::move(descriptor);
 }
 
-void Replica::connect_poller_remove(EventDescriptor descriptor) {
-  this->_poller_remove = descriptor;
+void Replica::connect_poller_remove(SlotDescriptor<void> descriptor) {
+  this->_poller_remove = std::move(descriptor);
 }
 
 void Replica::start() {
@@ -97,5 +101,4 @@ void Replica::start() {
   this->_handler = std::make_unique<Handler>(this->_event_loop, this->_master_fd.value(), this->_talker);
   this->_handler->connect_poller_add(this->_poller_add);
   this->_handler->connect_poller_remove(this->_poller_remove);
-  this->_handler->start();
 }

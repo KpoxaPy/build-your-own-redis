@@ -41,22 +41,28 @@ public:
   Server(EventLoopPtr event_loop, ServerInfo info = {});
   ~Server();
 
-  void connect_poller_add(EventDescriptor);
-  void connect_poller_remove(EventDescriptor);
-  void connect_handlers_manager_add(EventDescriptor);
-  void start();
+  void connect_poller_add(SlotDescriptor<void>);
+  void connect_poller_remove(SlotDescriptor<void>);
+  void connect_handlers_manager_add(SlotDescriptor<void>);
 
   ServerInfo& info();
+  bool is_replica() const;
 
 private:
   ServerInfo _info;
+  bool _is_replica;
 
-  EventDescriptor _poller_add = UNDEFINED_EVENT;
-  EventDescriptor _poller_remove = UNDEFINED_EVENT;
-  EventDescriptor _handlers_manager_add = UNDEFINED_EVENT;
+  SlotDescriptor<void> _poller_add;
+  SlotDescriptor<void> _poller_remove;
+  SlotDescriptor<void> _handlers_manager_add;
+
+  SlotHolderPtr<void> _slot_accept;
+
   EventLoopPtr _event_loop;
 
   std::optional<int> _server_fd;
+
+  void start();
 
   std::optional<int> accept();
 

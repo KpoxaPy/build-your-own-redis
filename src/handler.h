@@ -15,10 +15,9 @@ public:
   Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker);
   ~Handler();
 
-  void connect_poller_add(EventDescriptor);
-  void connect_poller_remove(EventDescriptor);
-  void connect_handlers_manager_remove(EventDescriptor);
-  void start();
+  void connect_poller_add(SlotDescriptor<void>);
+  void connect_poller_remove(SlotDescriptor<void>);
+  void connect_handlers_manager_remove(SlotDescriptor<void>);
 
 private:
   using Buffer = std::deque<char>;
@@ -26,16 +25,18 @@ private:
   std::optional<int> _fd;
   TalkerPtr _talker;
 
-  EventDescriptor _poller_add = UNDEFINED_EVENT;
-  EventDescriptor _poller_remove = UNDEFINED_EVENT;
-  EventDescriptor _handlers_manager_remove = UNDEFINED_EVENT;
+  SlotDescriptor<void> _poller_add;
+  SlotDescriptor<void> _poller_remove;
+  SlotDescriptor<void> _handlers_manager_remove;
   EventLoopPtr _event_loop;
 
   Buffer _read_buffer;
   Buffer _write_buffer;
   MessageParser<Buffer> _parser;
 
-  EventDescriptor _handler_desciptor;
+  SlotHolderPtr<void> _slot_handle;
+
+  void start();
 
   void setup_poll(bool write = false);
   void close();

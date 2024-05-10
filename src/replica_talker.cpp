@@ -9,7 +9,7 @@ enum : int {
   UNDEFINED = 1,
   WAIT_FIRST_PONG = 2,
   WAIT_OK_FOR_REPLCONF_PORT = 3,
-  WAIT_OK_FOR_REPLCINF_CAPA = 4,
+  WAIT_OK_FOR_REPLCONF_CAPA = 4,
   WAIT_FOR_PSYNC_ANSWER = 5,
   WAIT_FOR_RDB_FILE_SYNC = 6,
 };
@@ -36,11 +36,11 @@ void ReplicaTalker::listen(Message message) {
       std::transform(str.begin(), str.end(), str.begin(), [](unsigned char ch) { return std::tolower(ch); });
 
       if (str == "ok") {
-        this->_state = WAIT_OK_FOR_REPLCINF_CAPA;
+        this->_state = WAIT_OK_FOR_REPLCONF_CAPA;
         this->next_say<ReplConfCommand>("capa", "psync2");
       }
     }
-  } else if (this->_state == WAIT_OK_FOR_REPLCINF_CAPA) {
+  } else if (this->_state == WAIT_OK_FOR_REPLCONF_CAPA) {
     if (message.type() == Message::Type::SimpleString) {
       auto str = get<std::string>(message.getValue());
       std::transform(str.begin(), str.end(), str.begin(), [](unsigned char ch) { return std::tolower(ch); });

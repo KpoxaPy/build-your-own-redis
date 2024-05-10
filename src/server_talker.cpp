@@ -1,11 +1,17 @@
 #include "server_talker.h"
 
 #include "base64.h"
-#include "command.h"
+#include "storage.h"
 
 const std::string dummy_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 
+ServerTalker::ServerTalker(EventLoopPtr event_loop)
+  : _event_loop(event_loop) {
+}
+
 void ServerTalker::listen(Message message) {
+  const bool is_replica = this->_server->is_replica();
+
   try {
     auto command = Command::try_parse(message);
     auto type = command->type();
@@ -19,34 +25,21 @@ void ServerTalker::listen(Message message) {
       this->next_say(Message::Type::BulkString, echo_command.data());
 
     } else if (type == CommandType::Set) {
-      auto& set_command = dynamic_cast<SetCommand&>(*command);
-
-      this->_storage->storage[set_command.key()] = set_command.value();
-      Value& stored_value = this->_storage->storage[set_command.key()];
-
-      if (set_command.expire_ms()) {
-        stored_value.setExpire(std::chrono::milliseconds{set_command.expire_ms().value()});
+      if (is_replica) {
+        this->next_say(Message::Type::SimpleError, "cannot write: replica mode");
+        return;
       }
 
-      this->next_say(Message::Type::SimpleString, "OK");
+      this->_storage_command.emit(command)
+        .then([this](Message message) {
+          this->next_say(std::move(message));
+        });
 
     } else if (type == CommandType::Get) {
-      auto& get_command = static_cast<GetCommand&>(*command);
-
-      auto it = this->_storage->storage.find(get_command.key());
-      if (it == this->_storage->storage.end()) {
-        this->next_say(Message::Type::BulkString);
-        return;
-      }
-      auto& value = it->second;
-
-      if (value.getExpire() && Clock::now() >= value.getExpire()) {
-        this->_storage->storage.erase(get_command.key());
-        this->next_say(Message::Type::BulkString);
-        return;
-      }
-
-      this->next_say(Message::Type::BulkString, value.data());
+      this->_storage_command.emit(command)
+        .then([this](Message message) {
+          this->next_say(std::move(message));
+        });
 
     } else if (type == CommandType::Info) {
       auto& info_command = static_cast<InfoCommand&>(*command);
@@ -99,10 +92,14 @@ Message::Type ServerTalker::expected() {
   return Message::Type::Any;
 }
 
-void ServerTalker::set_storage(StoragePtr storage) {
-  this->_storage = storage;
-}
-
 void ServerTalker::set_server(ServerPtr server) {
   this->_server = server;
+}
+
+void ServerTalker::connect_storage_command(SlotDescriptor<Message> descriptor) {
+  this->_storage_command = std::move(descriptor);
+}
+
+void ServerTalker::connect_replica_add(SlotDescriptor<void> descriptor) {
+  this->_replica_add = std::move(descriptor);
 }

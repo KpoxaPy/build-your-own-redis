@@ -16,20 +16,21 @@ public:
   void set_storage(StoragePtr);
   void set_server(ServerPtr);
 
-  void connect_poller_add(EventDescriptor);
-  void connect_poller_remove(EventDescriptor);
-  void start();
+  void connect_poller_add(SlotDescriptor<void>);
+  void connect_poller_remove(SlotDescriptor<void>);
 
 private:
   StoragePtr _storage;
   ServerPtr _server;
 
-  EventDescriptor _poller_add = UNDEFINED_EVENT;
-  EventDescriptor _poller_remove = UNDEFINED_EVENT;
+  SlotDescriptor<void> _poller_add;
+  SlotDescriptor<void> _poller_remove;
   EventLoopPtr _event_loop;
 
   std::optional<int> _master_fd;
   std::unique_ptr<Handler> _handler;
   std::shared_ptr<ReplicaTalker> _talker;
+
+  void start();
 };
 using ReplicaPtr = std::shared_ptr<Replica>;

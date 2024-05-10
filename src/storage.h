@@ -1,6 +1,7 @@
 #pragma once
 
 #include "events.h"
+#include "command.h"
 
 #include <chrono>
 #include <memory>
@@ -30,11 +31,14 @@ class Storage {
 public:
   Storage(EventLoopPtr event_loop);
 
-  std::unordered_map<std::string, Value> storage;
-
   void start();
+
+  void set(std::string key, std::string value, std::optional<int> expire_ms);
+  std::optional<std::string> get(std::string key);
 
 private:
   EventLoopPtr _event_loop;
+
+  std::unordered_map<std::string, Value> _storage;
 };
 using StoragePtr = std::shared_ptr<Storage>;

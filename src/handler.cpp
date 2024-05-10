@@ -30,22 +30,43 @@ Handler::Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker)
   , _talker(talker)
   , _parser(this->_read_buffer)
 {
+  this->_slot_handle = this->_event_loop->listen([this](PollEventType type) {
+    if (!this->_fd) {
+      return;
+    }
+
+    if (type == PollEventType::ReadyToRead) {
+      this->process_read();
+    } else if (type == PollEventType::ReadyToWrite) {
+      this->write();
+    } else if (type == PollEventType::HangUp) {
+      this->close();
+    } else {
+      this->close();
+      throw std::runtime_error("Handler got unexpected poll event");
+      // TODO make error more verbose
+    }
+  });
+
+  this->_event_loop->post([this](){
+    this->start();
+  });
 }
 
 Handler::~Handler() {
   this->close();
 }
 
-void Handler::connect_poller_add(EventDescriptor descriptor) {
-  this->_poller_add = descriptor;
+void Handler::connect_poller_add(SlotDescriptor<void> descriptor) {
+  this->_poller_add = std::move(descriptor);
 }
 
-void Handler::connect_poller_remove(EventDescriptor descriptor) {
-  this->_poller_remove = descriptor;
+void Handler::connect_poller_remove(SlotDescriptor<void> descriptor) {
+  this->_poller_remove = std::move(descriptor);
 }
 
-void Handler::connect_handlers_manager_remove(EventDescriptor descriptor) {
-  this->_handlers_manager_remove = descriptor;
+void Handler::connect_handlers_manager_remove(SlotDescriptor<void> descriptor) {
+  this->_handlers_manager_remove = std::move(descriptor);
 }
 
 void Handler::start() {
@@ -55,26 +76,6 @@ void Handler::start() {
 
   fcntl(this->_fd.value(), F_SETFL, O_NONBLOCK);
 
-  this->_handler_desciptor = _event_loop->make_desciptor();
-  this->_event_loop->listen(this->_handler_desciptor, [this](const Event& event) {
-    if (!this->_fd) {
-      return;
-    }
-
-    auto& poll_event = static_cast<const PollEvent&>(event);
-
-    if (poll_event.type == PollEventType::ReadyToRead) {
-      this->process_read();
-    } else if (poll_event.type == PollEventType::ReadyToWrite) {
-      this->write();
-    } else if (poll_event.type == PollEventType::HangUp) {
-      this->close();
-    } else {
-      this->close();
-      throw std::runtime_error("Handler got unexpected poll event");
-      // TODO make error more verbose
-    }
-  });
   this->setup_poll(false);
 
   this->_event_loop->repeat([this]() {
@@ -84,24 +85,24 @@ void Handler::start() {
 
 void Handler::setup_poll(bool write) {
   if (write) {
-    this->_event_loop->post<PollAddEvent>(
+    this->_poller_add.emit(
         this->_poller_add,
         this->_fd.value(),
         PollEventTypeList{PollEventType::ReadyToRead, PollEventType::ReadyToWrite},
-        this->_handler_desciptor);
+        this->_slot_handle->descriptor());
   } else {
-    this->_event_loop->post<PollAddEvent>(
+    this->_poller_add.emit(
         this->_poller_add,
         this->_fd.value(),
         PollEventTypeList{PollEventType::ReadyToRead},
-        this->_handler_desciptor);
+        this->_slot_handle->descriptor());
   }
 }
 
 void Handler::close() {
   if (this->_fd) {
-    this->_event_loop->post<PollRemoveEvent>(this->_poller_remove, this->_fd.value());
-    this->_event_loop->post<HandlerRemoveEvent>(this->_handlers_manager_remove, this->_fd.value());
+    this->_poller_remove.emit(this->_fd.value());
+    this->_handlers_manager_remove.emit(this->_fd.value());
 
     ::close(this->_fd.value());
     this->_fd.reset();

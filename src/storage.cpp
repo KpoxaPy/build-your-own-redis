@@ -26,3 +26,26 @@ Storage::Storage(EventLoopPtr event_loop)
 
 void Storage::start() {
 }
+
+void Storage::set(std::string key, std::string value, std::optional<int> expire_ms) {
+  auto& stored_value = this->_storage[key] = value;
+
+  if (expire_ms) {
+    stored_value.setExpire(std::chrono::milliseconds{expire_ms.value()});
+  }
+}
+
+std::optional<std::string> Storage::get(std::string key) {
+  auto it = this->_storage.find(key);
+  if (it == this->_storage.end()) {
+    return {};
+  }
+  auto& value = it->second;
+
+  if (value.getExpire() && Clock::now() >= value.getExpire()) {
+    this->_storage.erase(key);
+    return {};
+  }
+
+  return value.data();
+}
