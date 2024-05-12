@@ -4,6 +4,8 @@
 
 HandlersManager::HandlersManager(EventLoopPtr event_loop)
   : _event_loop(event_loop) {
+  this->_new_fd_signal = std::make_shared<Signal<int, PollEventTypeList, SignalPtr<PollEventType>>>();
+  this->_removed_fd_signal = std::make_shared<Signal<int>>();
   this->_slot_add = std::make_shared<Slot<int>>([this](int fd) {
     this->add(fd);
   });

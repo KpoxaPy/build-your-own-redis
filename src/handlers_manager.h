@@ -7,6 +7,7 @@
 #include "talker.h"
 
 #include <memory>
+#include <unordered_map>
 
 class HandlersManager {
 public:
