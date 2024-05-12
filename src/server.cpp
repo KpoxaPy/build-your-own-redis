@@ -131,6 +131,7 @@ Server::Server(EventLoopPtr event_loop, ServerInfo info)
       std::cerr << "Client accepting error: " << e.what() << std::endl;
     }
   });
+  this->_fd_event_signal->connect(this->_slot_fd_event);
 
   this->_event_loop->post([this]() {
     this->start();

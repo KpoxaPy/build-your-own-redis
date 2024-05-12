@@ -51,6 +51,7 @@ Handler::Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker)
   this->_new_fd_signal = std::make_shared<Signal<int, PollEventTypeList, SignalPtr<PollEventType>>>();
   this->_removed_fd_signal = std::make_shared<Signal<int>>();
   this->_fd_event_signal = std::make_shared<Signal<PollEventType>>();
+  this->_fd_event_signal->connect(this->_slot_fd_event);
 
   this->_event_loop->post([this](){
     this->start();
@@ -99,10 +100,11 @@ void Handler::setup_poll(bool write) {
 
 void Handler::close() {
   if (this->_fd) {
-    this->_removed_fd_signal->emit(this->_fd.value());
-
-    ::close(this->_fd.value());
+    auto fd = this->_fd.value();
     this->_fd.reset();
+
+    this->_removed_fd_signal->emit(fd);
+    ::close(fd);
   }
 }
 
