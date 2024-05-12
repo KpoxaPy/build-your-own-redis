@@ -1,5 +1,6 @@
 #pragma once
 
+#include "signal_slot.h"
 #include "storage_middleware.h"
 #include "talker.h"
 
@@ -12,6 +13,7 @@ public:
   ServerTalker(EventLoopPtr event_loop);
 
   void listen(Message message) override;
+  void interrupt() override;
 
   Message::Type expected() override;
 
@@ -25,4 +27,7 @@ private:
   IReplicasManagerPtr _replicas_manager;
 
   EventLoopPtr _event_loop;
+
+  std::optional<ReplicaId> _replica_id;
+  SlotPtr<Message> _slot_replica_command;
 };

@@ -12,6 +12,7 @@ class Talker {
 public:
   virtual void listen(Message message) = 0;
   virtual std::optional<Message> say();
+  virtual void interrupt() {};
 
   virtual Message::Type expected() = 0;
 

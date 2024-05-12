@@ -5,7 +5,11 @@
 const std::string dummy_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 
 ServerTalker::ServerTalker(EventLoopPtr event_loop)
-  : _event_loop(event_loop) {
+  : _event_loop(event_loop)
+{
+  this->_slot_replica_command = std::make_shared<Slot<Message>>([this](Message message) {
+    this->next_say(std::move(message));
+  });
 }
 
 void ServerTalker::listen(Message message) {
@@ -80,11 +84,20 @@ void ServerTalker::listen(Message message) {
       this->next_say(Message::Type::SimpleString, ss.str());
       this->next_say(Message::Type::SyncResponse, base64_decode(dummy_rdb_file));
 
+      this->_replica_id = this->_replicas_manager->add_replica(this->_slot_replica_command);
+
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");
     }
   } catch (const CommandParseError& err) {
     this->next_say(Message::Type::SimpleError, err.what());
+  }
+}
+
+void ServerTalker::interrupt() {
+  if (this->_replica_id) {
+    this->_replicas_manager->remove_replica(this->_replica_id.value());
+    this->_replica_id.reset();
   }
 }
 

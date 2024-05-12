@@ -103,6 +103,10 @@ void Handler::close() {
     auto fd = this->_fd.value();
     this->_fd.reset();
 
+    if (this->_talker) {
+      this->_talker->interrupt();
+    }
+
     this->_removed_fd_signal->emit(fd);
     ::close(fd);
   }

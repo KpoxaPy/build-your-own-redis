@@ -12,6 +12,7 @@ enum : int {
   WAIT_OK_FOR_REPLCONF_CAPA = 4,
   WAIT_FOR_PSYNC_ANSWER = 5,
   WAIT_FOR_RDB_FILE_SYNC = 6,
+  WAIT_SERVER_COMMANDS = 7,
 };
 
 ReplicaTalker::ReplicaTalker() {
@@ -60,8 +61,17 @@ void ReplicaTalker::listen(Message message) {
     if (message.type() == Message::Type::SyncResponse) {
       // auto str = get<std::string>(message.getValue());
 
-      this->_state = UNDEFINED;
+      this->_state = WAIT_SERVER_COMMANDS;
     }
+  } else if (this->_state == WAIT_SERVER_COMMANDS) {
+    auto command = Command::try_parse(message);
+    auto type = command->type();
+
+    if (type == CommandType::Set) {
+      auto& set_command = dynamic_cast<SetCommand&>(*command);
+      this->_storage->set(set_command.key(), set_command.value(), set_command.expire_ms());
+    }
+
   } else if (this->_state == UNDEFINED) {
   } else {
     this->next_say(Message::Type::Leave);
