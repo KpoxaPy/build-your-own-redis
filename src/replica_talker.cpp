@@ -76,5 +76,9 @@ Message::Type ReplicaTalker::expected() {
 }
 
 void ReplicaTalker::set_server(ServerPtr server) {
-  this->_server = server;
+  this->_server = std::move(server);
+}
+
+void ReplicaTalker::set_storage(IStoragePtr storage) {
+  this->_storage = std::move(storage);
 }

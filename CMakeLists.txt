@@ -8,13 +8,14 @@ set(SOURCE_FILES
     src/handler.cpp
     src/handlers_manager.cpp
     src/main.cpp
-    src/message.cpp
     src/message_parser.cpp
+    src/message.cpp
     src/poller.cpp
-    src/replica.cpp
     src/replica_talker.cpp
-    src/server.cpp
+    src/replica.cpp
     src/server_talker.cpp
+    src/server.cpp
+    src/storage_middleware.cpp
     src/storage.cpp
     src/talker.cpp
     src/utils.cpp

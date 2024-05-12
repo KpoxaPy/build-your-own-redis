@@ -5,6 +5,7 @@
 #include "server.h"
 #include "server_talker.h"
 #include "storage.h"
+#include "storage_middleware.h"
 #include "handlers_manager.h"
 
 #include <iostream>
@@ -28,34 +29,28 @@ int main(int argc, char **argv) {
     if (server->is_replica()) {
       replica = std::make_shared<Replica>(event_loop);
       replica->set_server(server);
+      replica->set_storage(storage_middleware);
+      replica->new_fd()->connect(poller->add_fd());
+      replica->removed_fd()->connect(poller->remove_fd());
     }
 
-    storage_middleware->connect_storage_command(storage->command());
-
-    if (replica) {
-      replica->connect_storage_command(storage_middleware->command());
-      replica->connect_poller_add(poller->add());
-      replica->connect_poller_remove(poller->remove());
-    }
+    storage_middleware->set_storage(storage);
 
     handlers_manager->set_talker([event_loop, server, storage_middleware]() {
       auto talker = std::make_shared<ServerTalker>(event_loop);
       talker->set_server(server);
-
-      talker->connect_storage_command(storage_middleware->command());
-      talker->connect_replica_add(storage_middleware->add_replica());
-
+      talker->set_storage(storage_middleware);
+      talker->set_replicas_manager(storage_middleware);
       return talker;
     });
-    handlers_manager->connect_poller_add(poller->add());
-    handlers_manager->connect_poller_remove(poller->remove());
+    handlers_manager->new_fd()->connect(poller->add_fd());
+    handlers_manager->removed_fd()->connect(poller->remove_fd());
 
-    server->connect_poller_add(poller->add());
-    server->connect_poller_remove(poller->remove());
-    server->connect_handlers_manager_add(handlers_manager->add());
+    server->new_server_fd()->connect(poller->add_fd());
+    server->removed_server_fd()->connect(poller->remove_fd());
+    server->new_fd()->connect(handlers_manager->add_fd());
+    server->removed_fd()->connect(handlers_manager->remove_fd());
 
-    storage->start();
-    storage_middleware->start();
     event_loop->start();
 
     return 0;

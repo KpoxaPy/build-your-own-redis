@@ -1,6 +1,8 @@
 #pragma once
 
 #include "events.h"
+#include "poller.h"
+#include "signal_slot.h"
 
 #include <memory>
 #include <optional>
@@ -41,9 +43,10 @@ public:
   Server(EventLoopPtr event_loop, ServerInfo info = {});
   ~Server();
 
-  void connect_poller_add(SlotDescriptor<void>);
-  void connect_poller_remove(SlotDescriptor<void>);
-  void connect_handlers_manager_add(SlotDescriptor<void>);
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& new_server_fd();
+  SignalPtr<int>& removed_server_fd();
+  SignalPtr<int>& new_fd();
+  SignalPtr<int>& removed_fd();
 
   ServerInfo& info();
   bool is_replica() const;
@@ -52,11 +55,13 @@ private:
   ServerInfo _info;
   bool _is_replica;
 
-  SlotDescriptor<void> _poller_add;
-  SlotDescriptor<void> _poller_remove;
-  SlotDescriptor<void> _handlers_manager_add;
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>> _new_server_fd_signal;
+  SignalPtr<int> _removed_server_fd_signal;
+  SignalPtr<int> _new_fd_signal;
+  SignalPtr<int> _removed_fd_signal;
 
-  SlotHolderPtr<void> _slot_accept;
+  SignalPtr<PollEventType> _fd_event_signal;
+  SlotPtr<PollEventType> _slot_fd_event;
 
   EventLoopPtr _event_loop;
 

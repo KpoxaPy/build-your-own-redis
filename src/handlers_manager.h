@@ -2,6 +2,8 @@
 
 #include "events.h"
 #include "handler.h"
+#include "poller.h"
+#include "signal_slot.h"
 #include "talker.h"
 
 #include <memory>
@@ -14,17 +16,16 @@ public:
 
   void set_talker(TalkerBuilder);
 
-  void connect_poller_add(SlotDescriptor<void>);
-  void connect_poller_remove(SlotDescriptor<void>);
-  SlotDescriptor<void> add();
-  SlotDescriptor<void> remove();
+  SlotPtr<int>& add_fd();
+  SlotPtr<int>& remove_fd();
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& new_fd();
+  SignalPtr<int>& removed_fd();
 
 private:
-  SlotDescriptor<void> _poller_add;
-  SlotDescriptor<void> _poller_remove;
-
-  SlotHolderPtr<void> _slot_add;
-  SlotHolderPtr<void> _slot_remove;
+  SlotPtr<int> _slot_add;
+  SlotPtr<int> _slot_remove;
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>> _new_fd_signal;
+  SignalPtr<int> _removed_fd_signal;
 
   EventLoopPtr _event_loop;
 

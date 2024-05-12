@@ -30,7 +30,7 @@ Handler::Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker)
   , _talker(talker)
   , _parser(this->_read_buffer)
 {
-  this->_slot_handle = this->_event_loop->listen([this](PollEventType type) {
+  this->_slot_fd_event = std::make_shared<Slot<PollEventType>>([this](PollEventType type) {
     if (!this->_fd) {
       return;
     }
@@ -48,6 +48,10 @@ Handler::Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker)
     }
   });
 
+  this->_new_fd_signal = std::make_shared<Signal<int, PollEventTypeList, SignalPtr<PollEventType>>>();
+  this->_removed_fd_signal = std::make_shared<Signal<int>>();
+  this->_fd_event_signal = std::make_shared<Signal<PollEventType>>();
+
   this->_event_loop->post([this](){
     this->start();
   });
@@ -57,16 +61,12 @@ Handler::~Handler() {
   this->close();
 }
 
-void Handler::connect_poller_add(SlotDescriptor<void> descriptor) {
-  this->_poller_add = std::move(descriptor);
+SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& Handler::new_fd() {
+  return this->_new_fd_signal;
 }
 
-void Handler::connect_poller_remove(SlotDescriptor<void> descriptor) {
-  this->_poller_remove = std::move(descriptor);
-}
-
-void Handler::connect_handlers_manager_remove(SlotDescriptor<void> descriptor) {
-  this->_handlers_manager_remove = std::move(descriptor);
+SignalPtr<int>& Handler::removed_fd() {
+  return this->_removed_fd_signal;
 }
 
 void Handler::start() {
@@ -85,24 +85,21 @@ void Handler::start() {
 
 void Handler::setup_poll(bool write) {
   if (write) {
-    this->_poller_add.emit(
-        this->_poller_add,
+    this->_new_fd_signal->emit(
         this->_fd.value(),
         PollEventTypeList{PollEventType::ReadyToRead, PollEventType::ReadyToWrite},
-        this->_slot_handle->descriptor());
+        this->_fd_event_signal);
   } else {
-    this->_poller_add.emit(
-        this->_poller_add,
+    this->_new_fd_signal->emit(
         this->_fd.value(),
         PollEventTypeList{PollEventType::ReadyToRead},
-        this->_slot_handle->descriptor());
+        this->_fd_event_signal);
   }
 }
 
 void Handler::close() {
   if (this->_fd) {
-    this->_poller_remove.emit(this->_fd.value());
-    this->_handlers_manager_remove.emit(this->_fd.value());
+    this->_removed_fd_signal->emit(this->_fd.value());
 
     ::close(this->_fd.value());
     this->_fd.reset();

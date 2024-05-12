@@ -32,25 +32,28 @@ std::string addr_to_string(const struct addrinfo* info) {
 Replica::Replica(EventLoopPtr event_loop) 
   : _event_loop(event_loop)
 {
+  this->_new_fd_signal = std::make_shared<Signal<int, PollEventTypeList, SignalPtr<PollEventType>>>();
+  this->_removed_fd_signal = std::make_shared<Signal<int>>();
+
   this->_event_loop->post([this]() {
     this->start();
   });
-}
-
-void Replica::set_storage(StoragePtr storage) {
-  this->_storage = storage;
 }
 
 void Replica::set_server(ServerPtr server) {
   this->_server = server;
 }
 
-void Replica::connect_poller_add(SlotDescriptor<void> descriptor) {
-  this->_poller_add = std::move(descriptor);
+void Replica::set_storage(IStoragePtr storage) {
+  this->_storage = storage;
 }
 
-void Replica::connect_poller_remove(SlotDescriptor<void> descriptor) {
-  this->_poller_remove = std::move(descriptor);
+SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>> &Replica::new_fd() {
+  return this->_new_fd_signal;
+}
+
+SignalPtr<int> &Replica::removed_fd() {
+  return this->_removed_fd_signal;
 }
 
 void Replica::start() {
@@ -97,8 +100,9 @@ void Replica::start() {
 
   this->_talker = std::make_shared<ReplicaTalker>();
   this->_talker->set_server(this->_server);
+  this->_talker->set_storage(this->_storage);
 
   this->_handler = std::make_unique<Handler>(this->_event_loop, this->_master_fd.value(), this->_talker);
-  this->_handler->connect_poller_add(this->_poller_add);
-  this->_handler->connect_poller_remove(this->_poller_remove);
+  this->_handler->new_fd()->connect(this->_new_fd_signal);
+  this->_handler->removed_fd()->connect(this->_removed_fd_signal);
 }

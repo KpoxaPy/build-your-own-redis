@@ -2,6 +2,8 @@
 
 #include "events.h"
 #include "message_parser.h"
+#include "poller.h"
+#include "signal_slot.h"
 #include "talker.h"
 
 #include <optional>
@@ -15,9 +17,8 @@ public:
   Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker);
   ~Handler();
 
-  void connect_poller_add(SlotDescriptor<void>);
-  void connect_poller_remove(SlotDescriptor<void>);
-  void connect_handlers_manager_remove(SlotDescriptor<void>);
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& new_fd();
+  SignalPtr<int>& removed_fd();
 
 private:
   using Buffer = std::deque<char>;
@@ -25,16 +26,15 @@ private:
   std::optional<int> _fd;
   TalkerPtr _talker;
 
-  SlotDescriptor<void> _poller_add;
-  SlotDescriptor<void> _poller_remove;
-  SlotDescriptor<void> _handlers_manager_remove;
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>> _new_fd_signal;
+  SignalPtr<int> _removed_fd_signal;
+  SignalPtr<PollEventType> _fd_event_signal;
+  SlotPtr<PollEventType> _slot_fd_event;
   EventLoopPtr _event_loop;
 
   Buffer _read_buffer;
   Buffer _write_buffer;
   MessageParser<Buffer> _parser;
-
-  SlotHolderPtr<void> _slot_handle;
 
   void start();
 

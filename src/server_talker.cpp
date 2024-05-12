@@ -1,7 +1,6 @@
 #include "server_talker.h"
 
 #include "base64.h"
-#include "storage.h"
 
 const std::string dummy_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 
@@ -30,16 +29,17 @@ void ServerTalker::listen(Message message) {
         return;
       }
 
-      this->_storage_command.emit(command)
-        .then([this](Message message) {
-          this->next_say(std::move(message));
-        });
+      auto& set_command = dynamic_cast<SetCommand&>(*command);
+      this->_storage->set(set_command.key(), set_command.value(), set_command.expire_ms());
+      this->next_say(Message::Type::SimpleString, "OK");
 
     } else if (type == CommandType::Get) {
-      this->_storage_command.emit(command)
-        .then([this](Message message) {
-          this->next_say(std::move(message));
-        });
+      auto& get_command = static_cast<GetCommand&>(*command);
+      if (auto result = this->_storage->get(get_command.key())) {
+        this->next_say(Message::Type::BulkString, result.value());
+      } else {
+        this->next_say(Message::Type::BulkString);
+      }
 
     } else if (type == CommandType::Info) {
       auto& info_command = static_cast<InfoCommand&>(*command);
@@ -96,10 +96,10 @@ void ServerTalker::set_server(ServerPtr server) {
   this->_server = server;
 }
 
-void ServerTalker::connect_storage_command(SlotDescriptor<Message> descriptor) {
-  this->_storage_command = std::move(descriptor);
+void ServerTalker::set_storage(IStoragePtr storage) {
+  this->_storage = std::move(storage);
 }
 
-void ServerTalker::connect_replica_add(SlotDescriptor<void> descriptor) {
-  this->_replica_add = std::move(descriptor);
+void ServerTalker::set_replicas_manager(IReplicasManagerPtr replicas_manager) {
+  this->_replicas_manager = std::move(replicas_manager);
 }

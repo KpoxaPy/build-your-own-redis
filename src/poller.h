@@ -1,6 +1,7 @@
 #pragma once
 
 #include "events.h"
+#include "signal_slot.h"
 
 #include <memory>
 #include <poll.h>
@@ -21,19 +22,19 @@ class Poller {
 public:
   Poller(EventLoopPtr event_loop);
 
-  SlotDescriptor<void> add();
-  SlotDescriptor<void> remove();
+  SlotPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& add_fd();
+  SlotPtr<int>& remove_fd();
 
 private:
   struct SocketEventHandler {
     int fd;
     short flags;
-    SlotDescriptor<void> slot;
+    SignalPtr<PollEventType> signal;
     std::size_t pos_in_fds;
   };
 
-  SlotHolderPtr<void> _slot_add;
-  SlotHolderPtr<void> _slot_remove;
+  SlotPtr<int, PollEventTypeList, SignalPtr<PollEventType>> _slot_add;
+  SlotPtr<int> _slot_remove;
   EventLoopPtr _event_loop;
 
   std::vector<pollfd> _fds;

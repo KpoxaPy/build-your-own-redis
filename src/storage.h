@@ -1,7 +1,6 @@
 #pragma once
 
 #include "events.h"
-#include "command.h"
 
 #include <chrono>
 #include <memory>
@@ -11,6 +10,16 @@
 
 using Clock = std::chrono::steady_clock;
 using Timepoint = Clock::time_point;
+
+class IStorage {
+public:
+  virtual ~IStorage() = default;
+
+  virtual void set(std::string key, std::string value, std::optional<int> expire_ms) = 0;
+  virtual std::optional<std::string> get(std::string key) = 0;
+
+};
+using IStoragePtr = std::shared_ptr<IStorage>;
 
 class Value {
 public:
@@ -27,18 +36,15 @@ private:
   std::optional<Timepoint> _expire_time;
 };
 
-class Storage {
+class Storage : public IStorage {
 public:
   Storage(EventLoopPtr event_loop);
 
-  void start();
-
-  void set(std::string key, std::string value, std::optional<int> expire_ms);
-  std::optional<std::string> get(std::string key);
+  void set(std::string key, std::string value, std::optional<int> expire_ms) override;
+  std::optional<std::string> get(std::string key) override;
 
 private:
   EventLoopPtr _event_loop;
 
   std::unordered_map<std::string, Value> _storage;
 };
-using StoragePtr = std::shared_ptr<Storage>;

@@ -1,7 +1,8 @@
 #pragma once
 
-#include "talker.h"
 #include "server.h"
+#include "storage.h"
+#include "talker.h"
 
 #include <string>
 
@@ -14,9 +15,11 @@ public:
   Message::Type expected() override;
 
   void set_server(ServerPtr);
+  void set_storage(IStoragePtr);
 
 private:
   ServerPtr _server;
+  IStoragePtr _storage;
 
   int _state = 0;
 };

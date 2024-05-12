@@ -111,7 +111,13 @@ Server::Server(EventLoopPtr event_loop, ServerInfo info)
 {
   this->_is_replica = this->_info.replication.role == "slave";
 
-  this->_slot_accept = this->_event_loop->listen([this](PollEventType type) {
+  this->_new_server_fd_signal = std::make_shared<Signal<int, PollEventTypeList, SignalPtr<PollEventType>>>();
+  this->_removed_server_fd_signal = std::make_shared<Signal<int>>();
+  this->_new_fd_signal = std::make_shared<Signal<int>>();
+  this->_removed_fd_signal = std::make_shared<Signal<int>>();
+
+  this->_fd_event_signal = std::make_shared<Signal<PollEventType>>();
+  this->_slot_fd_event = std::make_shared<Slot<PollEventType>>([this](PollEventType type) {
     if (type != PollEventType::ReadyToRead) {
       throw std::runtime_error("Server got unexpected poll event");
       // TODO make error more verbose
@@ -119,7 +125,7 @@ Server::Server(EventLoopPtr event_loop, ServerInfo info)
 
     try {
       while (auto maybe_client_fd = this->accept()) {
-        this->_handlers_manager_add.emit(maybe_client_fd.value());
+        this->_new_fd_signal->emit(maybe_client_fd.value());
       }
     } catch (std::exception& e) {
       std::cerr << "Client accepting error: " << e.what() << std::endl;
@@ -135,16 +141,20 @@ Server::~Server() {
   this->close();
 }
 
-void Server::connect_poller_add(SlotDescriptor<void> descriptor) {
-  this->_poller_add = std::move(descriptor);
+SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& Server::new_server_fd() {
+  return this->_new_server_fd_signal;
 }
 
-void Server::connect_poller_remove(SlotDescriptor<void> descriptor) {
-  this->_poller_remove = std::move(descriptor);
+SignalPtr<int>& Server::removed_server_fd() {
+  return this->_removed_server_fd_signal;
 }
 
-void Server::connect_handlers_manager_add(SlotDescriptor<void> descriptor) {
-  this->_handlers_manager_add = std::move(descriptor);
+SignalPtr<int>& Server::new_fd() {
+  return this->_new_fd_signal;
+}
+
+SignalPtr<int>& Server::removed_fd() {
+  return this->_removed_fd_signal;
 }
 
 bool Server::is_replica() const {
@@ -203,11 +213,10 @@ void Server::start() {
     throw std::runtime_error(ss.str());
   }
 
-  this->_poller_add.emit(
-      this->_poller_add,
+  this->_new_server_fd_signal->emit(
       this->_server_fd.value(),
       PollEventTypeList{PollEventType::ReadyToRead},
-      this->_slot_accept->descriptor());
+      this->_fd_event_signal);
   
   if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Server ready!" << std::endl;
 }
@@ -236,7 +245,7 @@ ServerInfo& Server::info() {
 
 void Server::close() {
   if (this->_server_fd) {
-    this->_poller_remove.emit(this->_server_fd.value());
+    this->_removed_server_fd_signal->emit(this->_server_fd.value());
     ::close(this->_server_fd.value());
     this->_server_fd.reset();
   }

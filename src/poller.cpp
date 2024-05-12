@@ -7,37 +7,36 @@
 
 Poller::Poller(EventLoopPtr event_loop)
   : _event_loop(event_loop) {
-  this->_slot_add = this->_event_loop->listen([this](int fd, PollEventTypeList types, SlotDescriptor<void> slot) {
-    short flags;
-    if (types.contains(PollEventType::ReadyToRead)) {
-      flags |= POLLIN;
-    }
-    if (types.contains(PollEventType::ReadyToWrite)) {
-      flags |= POLLOUT;
-    }
+  this->_slot_add = std::make_shared<Slot<int, PollEventTypeList, SignalPtr<PollEventType>>>(
+    [this](int fd, PollEventTypeList types, SignalPtr<PollEventType> signal) {
+      short flags;
+      if (types.contains(PollEventType::ReadyToRead)) {
+        flags |= POLLIN;
+      }
+      if (types.contains(PollEventType::ReadyToWrite)) {
+        flags |= POLLOUT;
+      }
 
-    auto it = this->_handlers.find(fd);
-    if (it == this->_handlers.end()) {
-      this->_fds.push_back(pollfd{
-        .fd = fd,
-        .events = flags
-      });
+      auto it = this->_handlers.find(fd);
+      if (it == this->_handlers.end()) {
+        this->_fds.push_back(pollfd{
+            .fd = fd,
+            .events = flags});
 
-      this->_handlers[fd] = SocketEventHandler{
-        .fd = fd,
-        .flags = flags,
-        .slot = slot,
-        .pos_in_fds = this->_fds.size() - 1
-      };
-    } else {
-      auto& handler = it->second;
-      handler.flags = flags;
-      handler.slot = slot;
-      this->_fds[handler.pos_in_fds].events = flags;
-    }
-  });
+        this->_handlers[fd] = SocketEventHandler{
+            .fd = fd,
+            .flags = flags,
+            .signal = signal,
+            .pos_in_fds = this->_fds.size() - 1};
+      } else {
+        auto& handler = it->second;
+        handler.flags = flags;
+        handler.signal = signal;
+        this->_fds[handler.pos_in_fds].events = flags;
+      }
+    });
 
-  this->_slot_remove = this->_event_loop->listen([this](int fd) {
+  this->_slot_remove = std::make_shared<Slot<int>>([this](int fd) {
     auto it = this->_handlers.find(fd);
     if (it == this->_handlers.end()) {
       return;
@@ -54,12 +53,12 @@ Poller::Poller(EventLoopPtr event_loop)
   });
 }
 
-SlotDescriptor<void> Poller::add() {
-  return this->_slot_add->descriptor();
+SlotPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& Poller::add_fd() {
+  return this->_slot_add;
 }
 
-SlotDescriptor<void> Poller::remove() {
-  return this->_slot_remove->descriptor();
+SlotPtr<int>& Poller::remove_fd() {
+  return this->_slot_remove;
 }
 
 void Poller::start() {
@@ -89,27 +88,27 @@ void Poller::start() {
         auto& handler = this->_handlers[fd.fd];
 
         if (fd.revents & POLLNVAL) {
-          handler.slot.emit(PollEventType::InvalidFD);
+          handler.signal->emit(PollEventType::InvalidFD);
           if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG InvalidFD event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (fd.revents & POLLERR) {
-          handler.slot.emit(PollEventType::Error);
+          handler.signal->emit(PollEventType::Error);
           if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG Error event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (fd.revents & POLLHUP) {
-          handler.slot.emit(PollEventType::HangUp);
+          handler.signal->emit(PollEventType::HangUp);
           if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG HangUp event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (handler.flags & POLLIN && fd.revents & POLLIN) {
-          handler.slot.emit(PollEventType::ReadyToRead);
+          handler.signal->emit(PollEventType::ReadyToRead);
           if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG ReadyToRead event sent to handler with fd = " << handler.fd << std::endl;
         }
 
         if (handler.flags & POLLOUT && fd.revents & POLLOUT) {
-          handler.slot.emit(PollEventType::ReadyToWrite);
+          handler.signal->emit(PollEventType::ReadyToWrite);
           if (DEBUG_LEVEL >= 2) std::cerr << "DEBUG ReadyToWrite event sent to handler with fd = " << handler.fd << std::endl;
         }
       }

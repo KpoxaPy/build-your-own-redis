@@ -1,8 +1,9 @@
 #pragma once
 
+#include "storage_middleware.h"
 #include "talker.h"
 
-#include "command.h"
+#include "storage.h"
 #include "events.h"
 #include "server.h"
 
@@ -15,14 +16,13 @@ public:
   Message::Type expected() override;
 
   void set_server(ServerPtr);
-
-  void connect_storage_command(SlotDescriptor<Message>);
-  void connect_replica_add(SlotDescriptor<void>);
+  void set_storage(IStoragePtr);
+  void set_replicas_manager(IReplicasManagerPtr);
 
 private:
-  SlotDescriptor<Message> _storage_command;
-  SlotDescriptor<void> _replica_add;
-  EventLoopPtr _event_loop;
-
   ServerPtr _server;
+  IStoragePtr _storage;
+  IReplicasManagerPtr _replicas_manager;
+
+  EventLoopPtr _event_loop;
 };

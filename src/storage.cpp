@@ -24,9 +24,6 @@ Storage::Storage(EventLoopPtr event_loop)
   : _event_loop(event_loop) {
 }
 
-void Storage::start() {
-}
-
 void Storage::set(std::string key, std::string value, std::optional<int> expire_ms) {
   auto& stored_value = this->_storage[key] = value;
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "events.h"
+#include "signal_slot.h"
 #include "handler.h"
 #include "replica_talker.h"
 #include "server.h"
@@ -13,18 +13,19 @@ class Replica {
 public:
   Replica(EventLoopPtr);
 
-  void set_storage(StoragePtr);
   void set_server(ServerPtr);
+  void set_storage(IStoragePtr);
 
-  void connect_poller_add(SlotDescriptor<void>);
-  void connect_poller_remove(SlotDescriptor<void>);
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>>& new_fd();
+  SignalPtr<int>& removed_fd();
 
 private:
-  StoragePtr _storage;
+  IStoragePtr _storage;
   ServerPtr _server;
 
-  SlotDescriptor<void> _poller_add;
-  SlotDescriptor<void> _poller_remove;
+  SignalPtr<int, PollEventTypeList, SignalPtr<PollEventType>> _new_fd_signal;
+  SignalPtr<int> _removed_fd_signal;
+
   EventLoopPtr _event_loop;
 
   std::optional<int> _master_fd;
