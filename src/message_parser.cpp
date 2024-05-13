@@ -4,7 +4,7 @@
 #include "utils.h"
 
 #include <algorithm>
-#include <queue>
+#include <stack>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_set>
@@ -27,7 +27,7 @@ public:
   using RawMessageBuffer = typename MessageParser<T>::RawMessageBuffer;
 
   RawMessageBuffer& buffer;
-  std::queue<RawMessage> unget_queue;
+  std::stack<RawMessage> unget_stack;
 
   ParseHelper(RawMessageBuffer& buffer)
     : buffer(buffer) {
@@ -40,21 +40,21 @@ public:
   RawMessage get() {
     auto message = this->buffer.front();
     this->buffer.pop_front();
-    this->unget_queue.push(message);
+    this->unget_stack.push(message);
     return std::move(message);
   }
 
   void clear_unget() {
-    this->unget_queue = {};
+    this->unget_stack = {};
   }
 
   void unget() {
-    this->buffer.push_front(this->unget_queue.front());
-    this->unget_queue.pop();
+    this->buffer.push_front(std::move(this->unget_stack.top()));
+    this->unget_stack.pop();
   }
 
   void unget_all() {
-    while (this->unget_queue.size() > 0) {
+    while (this->unget_stack.size() > 0) {
       this->unget();
     }
   }
@@ -168,59 +168,71 @@ MessageParser<T>::MessageParser(T& buffer)
 
 template <typename T>
 std::optional<Message> MessageParser<T>::try_parse(Message::Type expected) {
+  ParseHelper<T> helper(this->_raw_message_buffer);
+
   while (this->_buffer.size() > 0) {
-    if (this->_length_encoded_message_expected) {
-      auto length = this->_length_encoded_message_expected.value();
-
-      std::size_t delim_size = DELIM.size();
-      if (expected == Message::Type::SyncResponse) {
-        delim_size = 0;
-      }
-
-      if (this->_buffer.size() < length + delim_size) {
-        break;
-      }
-
-      auto first = this->_buffer.begin();
-      auto last = this->_buffer.begin() + length;
-      this->_raw_message_buffer.emplace_back(first, last);
-      this->_buffer.erase(first, last + delim_size);
-
-      this->_length_encoded_message_expected.reset();
-      continue;
-
-    }
-    
-    char type = this->_buffer[0];
-    if (!EXPECTED_TYPES.contains(type)) {
-      std::ostringstream ss;
-      ss << "Unknown message type: " << type;
-      throw std::runtime_error(ss.str());
-    }
-
-    auto result_it = std::search(this->_buffer.begin(), this->_buffer.end(), DELIM.begin(), DELIM.end());
-    if (result_it == this->_buffer.end()) {
+    if (!this->get_next_raw_message(expected)) {
       break;
     }
 
-    this->_raw_message_buffer.emplace_back(this->_buffer.begin(), result_it);
-    this->_buffer.erase(this->_buffer.begin(), result_it + DELIM.size());
-
-    if (!LENGTH_TYPES.contains(type)) {
-      continue;
-    }
-
-    auto& last = this->_raw_message_buffer.back();
-    if (auto value = parseInt(last.data() + 1, last.size() - 1)) {
-      this->_length_encoded_message_expected = value.value();
-    } else {
-      std::ostringstream ss;
-      ss << "Malformed length for array message: " << last;
-      throw std::runtime_error(ss.str());
+    if(auto message = helper.parse(expected)) {
+      return std::move(message);
     }
   }
-
-  ParseHelper<T> helper(this->_raw_message_buffer);
-  return helper.parse(expected);
+  
+  return {};
 }
 
+template <typename T>
+bool MessageParser<T>::get_next_raw_message(Message::Type expected) {
+  if (this->_length_encoded_message_expected) {
+    auto length = this->_length_encoded_message_expected.value();
+
+    std::size_t delim_size = DELIM.size();
+    if (expected == Message::Type::SyncResponse) {
+      delim_size = 0;
+    }
+
+    if (this->_buffer.size() < length + delim_size) {
+      return false;
+    }
+
+    auto first = this->_buffer.begin();
+    auto last = this->_buffer.begin() + length;
+    this->_raw_message_buffer.emplace_back(first, last);
+    this->_buffer.erase(first, last + delim_size);
+
+    this->_length_encoded_message_expected.reset();
+    return true;
+  }
+  
+  char type = this->_buffer[0];
+  if (!EXPECTED_TYPES.contains(type)) {
+    std::ostringstream ss;
+    ss << "Unknown message type: " << type;
+    throw std::runtime_error(ss.str());
+  }
+
+  auto result_it = std::search(this->_buffer.begin(), this->_buffer.end(), DELIM.begin(), DELIM.end());
+  if (result_it == this->_buffer.end()) {
+    return false;
+  }
+
+  this->_raw_message_buffer.emplace_back(this->_buffer.begin(), result_it);
+  this->_buffer.erase(this->_buffer.begin(), result_it + DELIM.size());
+
+  if (!LENGTH_TYPES.contains(type)) {
+    return true;
+  }
+
+  auto& last = this->_raw_message_buffer.back();
+  if (auto value = parseInt(last.data() + 1, last.size() - 1)) {
+    this->_length_encoded_message_expected = value.value();
+  } else {
+    std::ostringstream ss;
+    ss << "Malformed length for array message: " << last;
+    throw std::runtime_error(ss.str());
+  }
+
+  return true;
+}

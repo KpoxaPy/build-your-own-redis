@@ -1,4 +1,6 @@
 #include "utils.h"
+
+#include <algorithm>
 #include <random>
 
 std::string random_hexstring(std::size_t length)
@@ -63,4 +65,10 @@ std::optional<int> parseInt(const char* first, std::size_t size) {
   }
 
   return {};
+}
+
+std::string to_lower_case(std::string_view view) {
+  std::string result{view.begin(), view.end()};
+  std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) { return std::tolower(ch); });
+  return result;
 }

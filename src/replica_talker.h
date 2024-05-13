@@ -22,4 +22,6 @@ private:
   IStoragePtr _storage;
 
   int _state = 0;
+
+  void process(const Message&);
 };

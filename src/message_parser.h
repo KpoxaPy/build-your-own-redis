@@ -20,4 +20,6 @@ private:
   T& _buffer;
   RawMessageBuffer _raw_message_buffer;
   std::optional<std::size_t> _length_encoded_message_expected;
+
+  bool get_next_raw_message(Message::Type expected);
 };

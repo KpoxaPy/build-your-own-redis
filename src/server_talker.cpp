@@ -72,7 +72,12 @@ void ServerTalker::listen(Message message) {
     } else if (type == CommandType::ReplConf) {
       auto& cmd = static_cast<ReplConfCommand&>(*command);
 
-      this->next_say(Message::Type::SimpleString, "OK");
+      if (!this->_replica_id) {
+        this->_replica_id = this->_replicas_manager->add_replica(this->_slot_replica_command);
+      }
+      if (this->_replicas_manager->replica_process_conf(this->_replica_id.value(), command)) {
+        this->next_say(Message::Type::SimpleString, "OK");
+      }
 
     } else if (type == CommandType::Psync) {
       auto& cmd = static_cast<PsyncCommand&>(*command);
@@ -84,7 +89,8 @@ void ServerTalker::listen(Message message) {
       this->next_say(Message::Type::SimpleString, ss.str());
       this->next_say(Message::Type::SyncResponse, base64_decode(dummy_rdb_file));
 
-      this->_replica_id = this->_replicas_manager->add_replica(this->_slot_replica_command);
+      this->next_say<ReplConfCommand>("GETACK", "*");
+      this->_replicas_manager->replica_set_state(this->_replica_id.value(), IReplicasManager::ReplState::WRITE);
 
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");

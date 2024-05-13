@@ -27,9 +27,7 @@ CommandPtr Command::try_parse(const Message& message) {
     throw CommandParseError("unknown command");
   }
 
-  std::string command = std::get<std::string>(data[0].getValue());
-  std::transform(command.begin(), command.end(), command.begin(), [](unsigned char ch) { return std::tolower(ch); });
-
+  std::string command = to_lower_case(std::get<std::string>(data[0].getValue()));
   if (command == "ping") {
     return PingCommand::try_parse(message);
   } else if (command == "echo") {
@@ -135,8 +133,7 @@ CommandPtr SetCommand::try_parse(const Message& message) {
       if (data[data_pos].type() != Message::Type::BulkString) {
         throw CommandParseError("invalid type");
       }
-      std::string param = std::get<std::string>(data[data_pos].getValue());
-      std::transform(param.begin(), param.end(), param.begin(), [](unsigned char ch) { return std::tolower(ch); });
+      std::string param = to_lower_case(std::get<std::string>(data[data_pos].getValue()));
 
       if (param == "px") {
         if (data_pos + 1 >= data.size()) {
@@ -256,9 +253,7 @@ CommandPtr InfoCommand::try_parse(const Message& message) {
       throw CommandParseError("invalid type");
     }
 
-    std::string info_part = std::get<std::string>(data[data_pos].getValue());
-    std::transform(info_part.begin(), info_part.end(), info_part.begin(), [](unsigned char ch) { return std::tolower(ch); });
-    command->_args.emplace_back(std::move(info_part));
+    command->_args.emplace_back(to_lower_case(std::get<std::string>(data[data_pos].getValue())));
 
     data_pos += 1;
   }
