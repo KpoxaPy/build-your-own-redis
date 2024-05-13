@@ -69,6 +69,10 @@ public:
     JobHandle& operator=(JobHandle&& other) = default;
 
     ~JobHandle() {
+      this->invalidate();
+    }
+
+    void invalidate() {
       if (auto ptr = this->job.lock()) {
         ptr->is_valid = false;
       }

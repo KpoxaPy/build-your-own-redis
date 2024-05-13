@@ -7,7 +7,7 @@ const std::string dummy_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlz
 ServerTalker::ServerTalker(EventLoopPtr event_loop)
   : _event_loop(event_loop)
 {
-  this->_slot_replica_command = std::make_shared<Slot<Message>>([this](Message message) {
+  this->_slot_message = std::make_shared<Slot<Message>>([this](Message message) {
     this->next_say(std::move(message));
   });
 }
@@ -73,7 +73,7 @@ void ServerTalker::listen(Message message) {
       auto& cmd = static_cast<ReplConfCommand&>(*command);
 
       if (!this->_replica_id) {
-        this->_replica_id = this->_replicas_manager->add_replica(this->_slot_replica_command);
+        this->_replica_id = this->_replicas_manager->add_replica(this->_slot_message);
       }
       if (this->_replicas_manager->replica_process_conf(this->_replica_id.value(), command)) {
         this->next_say(Message::Type::SimpleString, "OK");
@@ -93,10 +93,7 @@ void ServerTalker::listen(Message message) {
 
     } else if (type == CommandType::Wait) {
       auto& wait_command = static_cast<WaitCommand&>(*command);
-
-      this->_wait_reply_timeout = this->_event_loop->set_timeout(wait_command.timeout_ms(), [this]() {
-        this->next_say(Message::Type::Integer, static_cast<int>(this->_replicas_manager->count_replicas()));
-      });
+      this->_replicas_manager->wait_for(wait_command.replicas(), wait_command.timeout_ms(), this->_slot_message);
 
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");
