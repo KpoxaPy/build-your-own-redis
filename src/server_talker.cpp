@@ -94,7 +94,9 @@ void ServerTalker::listen(Message message) {
     } else if (type == CommandType::Wait) {
       auto& wait_command = static_cast<WaitCommand&>(*command);
 
-      this->next_say(Message::Type::Integer, static_cast<int>(this->_replicas_manager->count_replicas()));
+      this->_wait_reply_timeout = this->_event_loop->set_timeout(wait_command.timeout_ms(), [this]() {
+        this->next_say(Message::Type::Integer, static_cast<int>(this->_replicas_manager->count_replicas()));
+      });
 
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");

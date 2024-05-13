@@ -28,6 +28,8 @@ private:
 
   EventLoopPtr _event_loop;
 
+  EventLoop::JobHandle _wait_reply_timeout;
+
   std::optional<ReplicaId> _replica_id;
   SlotPtr<Message> _slot_replica_command;
 };

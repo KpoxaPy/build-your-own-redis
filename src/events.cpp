@@ -23,6 +23,13 @@ EventLoop::JobHandle EventLoop::repeat(Func func) {
   return job;
 }
 
+EventLoop::JobHandle EventLoop::set_timeout(std::size_t ms, Func func) {
+  auto job = std::make_shared<JobWrapper>(std::move(func));
+  job->fire_time = Clock::now() + std::chrono::milliseconds{ms};
+  this->_timeout_jobs.push_back(job);
+  return job;
+}
+
 void EventLoop::start() {
   while (true) {
     while (this->_onetime_jobs.size() > 0) {
@@ -41,6 +48,21 @@ void EventLoop::start() {
         job->call();
       } catch (const std::exception& exception) {
         std::cerr << "EventLoop caught exception while repeating job: " << std::endl
+          << exception.what() << std::endl;
+      }
+    }
+
+    for (auto it = this->_timeout_jobs.begin(); it != this->_timeout_jobs.end();) {
+      try {
+        auto job = *it;
+        if (Clock::now() >= job->fire_time.value()) {
+          it = this->_timeout_jobs.erase(it);
+          job->call();
+        } else {
+          ++it;
+        }
+      } catch (const std::exception& exception) {
+        std::cerr << "EventLoop caught exception while timeout job: " << std::endl
           << exception.what() << std::endl;
       }
     }

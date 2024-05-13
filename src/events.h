@@ -1,8 +1,10 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <list>
 #include <memory>
+#include <optional>
 #include <queue>
 
 static constexpr std::size_t MAX_UNQUEUE_EVENTS_DEFAULT = -1;
@@ -13,6 +15,8 @@ using EventLoopPtr = std::shared_ptr<EventLoop>;
 class EventLoop : public std::enable_shared_from_this<EventLoop> {
 public:
   using Func = std::function<void()>;
+  using Clock = std::chrono::steady_clock;
+  using Timepoint = Clock::time_point;
 
 private:
   template <typename Slot>
@@ -40,6 +44,7 @@ private:
   struct JobWrapper {
     Func func;
     bool is_valid = false;
+    std::optional<Timepoint> fire_time;
 
     JobWrapper(Func func) {
       this->func = std::move(func);
@@ -62,15 +67,6 @@ public:
     JobHandle() = default;
     JobHandle(JobHandle&& other) = default;
     JobHandle& operator=(JobHandle&& other) = default;
-
-    // JobHandle(JobHandle&& other) {
-    //   this->job = std::move(other.job);
-    // }
-
-    // JobHandle& operator=(JobHandle&& other) {
-    //   this->job = std::move(other.job);
-    //   return *this;
-    // }
 
     ~JobHandle() {
       if (auto ptr = this->job.lock()) {
@@ -98,6 +94,7 @@ public:
 
   JobHandle post(Func);
   JobHandle repeat(Func);
+  JobHandle set_timeout(std::size_t ms, Func);
 
   void start();
 
@@ -106,5 +103,6 @@ private:
 
   std::queue<JobWrapperPtr> _onetime_jobs;
   std::list<JobWrapperPtr> _repeated_jobs;
+  std::list<JobWrapperPtr> _timeout_jobs; // stupid simple. better to have jobs sorted by fire time
   std::queue<Func> _events;
 };
