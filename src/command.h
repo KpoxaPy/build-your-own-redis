@@ -21,7 +21,8 @@ enum class CommandType {
   Get,
   Info,
   ReplConf,
-  Psync
+  Psync,
+  Wait
 };
 
 class Command;
@@ -141,4 +142,19 @@ public:
 
 private:
   std::vector<std::string> _args;
+};
+
+class WaitCommand : public Command {
+public:
+  static CommandPtr try_parse(const Message&);
+
+  WaitCommand(std::size_t replicas, std::size_t timeout_ms);
+  std::size_t replicas() const;
+  std::size_t timeout_ms() const;
+
+  Message construct() const override;
+
+private:
+ std::size_t _replicas;
+ std::size_t _timeout_ms;
 };

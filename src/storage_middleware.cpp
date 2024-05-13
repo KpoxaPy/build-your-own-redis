@@ -57,6 +57,10 @@ void StorageMiddleware::replica_set_state(ReplicaId id, ReplState state) {
   this->_replicas[id].state = state;
 }
 
+std::size_t StorageMiddleware::count_replicas() {
+  return this->_replicas.size();
+}
+
 void StorageMiddleware::push(const Message & message) {
   for (const auto& [id, handle]: this->_replicas) {
     if (handle.state != ReplState::WRITE) {

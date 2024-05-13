@@ -24,6 +24,7 @@ public:
   virtual void remove_replica(ReplicaId) = 0;
   virtual bool replica_process_conf(ReplicaId, CommandPtr) = 0;
   virtual void replica_set_state(ReplicaId, ReplState) = 0;
+  virtual std::size_t count_replicas() = 0;
 };
 using IReplicasManagerPtr = std::shared_ptr<IReplicasManager>;
 
@@ -45,6 +46,7 @@ public:
   void remove_replica(ReplicaId) override;
   bool replica_process_conf(ReplicaId, CommandPtr) override;
   void replica_set_state(ReplicaId, ReplState) override;
+  std::size_t count_replicas() override;
 
 private:
   EventLoopPtr _event_loop;

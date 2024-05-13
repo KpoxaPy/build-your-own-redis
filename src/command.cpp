@@ -42,6 +42,8 @@ CommandPtr Command::try_parse(const Message& message) {
     return ReplConfCommand::try_parse(message);
   } else if (command == "psync") {
     return PsyncCommand::try_parse(message);
+  } else if (command == "wait") {
+    return WaitCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");
@@ -350,5 +352,70 @@ Message PsyncCommand::construct() const {
   for (const auto& info_part: this->_args) {
     parts.emplace_back(Message::Type::BulkString, info_part);
   }
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+CommandPtr WaitCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  if (data.size() == 4) {
+    std::ostringstream ss;
+    ss << "WAIT command must have 2 arguments, recieved " << data.size() - 1;
+    throw CommandParseError(ss.str());
+  }
+
+  if (data[1].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "WAIT command must have first argument with type BulkString";
+    throw CommandParseError(ss.str());
+  }
+
+  const std::string& replicas_str = std::get<std::string>(data[1].getValue());
+  std::optional<int> replicas = parseInt(replicas_str.data(), replicas_str.size());
+
+  if (!replicas) {
+    std::ostringstream ss;
+    ss << "WAIT command must have first argument as number";
+    throw CommandParseError(ss.str());
+  }
+
+  if (data[2].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "WAIT command must have second argument with type BulkString";
+    throw CommandParseError(ss.str());
+  }
+
+  const std::string& timeout_ms_str = std::get<std::string>(data[2].getValue());
+  std::optional<int> timeout_ms = parseInt(timeout_ms_str.data(), timeout_ms_str.size());
+
+  if (!timeout_ms) {
+    std::ostringstream ss;
+    ss << "WAIT command must have second argument as number";
+    throw CommandParseError(ss.str());
+  }
+
+  return std::make_shared<WaitCommand>(replicas.value(), timeout_ms.value());
+}
+
+WaitCommand::WaitCommand(std::size_t replicas, std::size_t timeout_ms)
+  : _replicas(replicas), _timeout_ms(timeout_ms) {
+  this->_type = CommandType::Wait;
+}
+
+std::size_t WaitCommand::replicas() const {
+  return this->_replicas;
+}
+
+std::size_t WaitCommand::timeout_ms() const {
+  return this->_timeout_ms;
+}
+
+Message WaitCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "WAIT");
+  parts.emplace_back(Message::Type::BulkString, std::to_string(this->_replicas));
+  parts.emplace_back(Message::Type::BulkString, std::to_string(this->_timeout_ms));
+
   return Message(Message::Type::Array, parts);
 }

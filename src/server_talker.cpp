@@ -90,6 +90,12 @@ void ServerTalker::listen(Message message) {
       this->next_say(Message::Type::SyncResponse, base64_decode(dummy_rdb_file));
 
       this->_replicas_manager->replica_set_state(this->_replica_id.value(), IReplicasManager::ReplState::WRITE);
+
+    } else if (type == CommandType::Wait) {
+      auto& wait_command = static_cast<WaitCommand&>(*command);
+
+      this->next_say(Message::Type::Integer, static_cast<int>(this->_replicas_manager->count_replicas()));
+
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");
     }
