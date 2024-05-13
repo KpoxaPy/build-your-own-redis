@@ -133,7 +133,7 @@ Server::Server(EventLoopPtr event_loop, ServerInfo info)
   });
   this->_fd_event_signal->connect(this->_slot_fd_event);
 
-  this->_event_loop->post([this]() {
+  this->_start_handle = this->_event_loop->post([this]() {
     this->start();
   });
 }

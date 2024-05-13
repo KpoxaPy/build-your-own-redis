@@ -37,6 +37,9 @@ private:
   SlotPtr<int> _slot_remove;
   EventLoopPtr _event_loop;
 
+  EventLoop::JobHandle _start_handle;
+  EventLoop::JobHandle _loop_handle;
+
   std::vector<pollfd> _fds;
   std::unordered_map<int, SocketEventHandler> _handlers;
 

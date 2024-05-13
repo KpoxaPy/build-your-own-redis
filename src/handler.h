@@ -32,6 +32,9 @@ private:
   SlotPtr<PollEventType> _slot_fd_event;
   EventLoopPtr _event_loop;
 
+  EventLoop::JobHandle _start_handle;
+  EventLoop::JobHandle _loop_handle;
+
   Buffer _read_buffer;
   Buffer _write_buffer;
   MessageParser<Buffer> _parser;

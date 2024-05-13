@@ -11,12 +11,16 @@ EventLoop::EventLoop(std::size_t max_unqueue_events)
 {
 }
 
-void EventLoop::post(Func func) {
-  this->_onetime_jobs.emplace(std::move(func));
+EventLoop::JobHandle EventLoop::post(Func func) {
+  auto job = std::make_shared<JobWrapper>(std::move(func));
+  this->_onetime_jobs.push(job);
+  return job;
 }
 
-void EventLoop::repeat(Func func) {
-  this->_repeated_jobs.emplace_back(std::move(func));
+EventLoop::JobHandle EventLoop::repeat(Func func) {
+  auto job = std::make_shared<JobWrapper>(std::move(func));
+  this->_repeated_jobs.push_back(job);
+  return job;
 }
 
 void EventLoop::start() {
@@ -25,7 +29,7 @@ void EventLoop::start() {
       try {
         auto job = std::move(this->_onetime_jobs.front());
         this->_onetime_jobs.pop();
-        job();
+        job->call();
       } catch (const std::exception& exception) {
         std::cerr << "EventLoop caught exception while onetime job: " << std::endl
           << exception.what() << std::endl;
@@ -34,7 +38,7 @@ void EventLoop::start() {
 
     for (const auto& job: this->_repeated_jobs) {
       try {
-        job();
+        job->call();
       } catch (const std::exception& exception) {
         std::cerr << "EventLoop caught exception while repeating job: " << std::endl
           << exception.what() << std::endl;

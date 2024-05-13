@@ -28,6 +28,8 @@ private:
 
   EventLoopPtr _event_loop;
 
+  EventLoop::JobHandle _start_handle;
+
   std::optional<int> _master_fd;
   std::unique_ptr<Handler> _handler;
   std::shared_ptr<ReplicaTalker> _talker;

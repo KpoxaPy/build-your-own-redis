@@ -48,7 +48,7 @@ Poller::Poller(EventLoopPtr event_loop)
     this->_handlers.erase(fd);
   });
 
-  this->_event_loop->post([this](){
+  this->_start_handle = this->_event_loop->post([this](){
     this->start();
   });
 }
@@ -62,7 +62,7 @@ SlotPtr<int>& Poller::remove_fd() {
 }
 
 void Poller::start() {
-  this->_event_loop->repeat([this]() {
+  this->_loop_handle = this->_event_loop->repeat([this]() {
     if (this->_handlers.size() == 0) {
       return;
     }

@@ -11,6 +11,10 @@ class EventLoop;
 using EventLoopPtr = std::shared_ptr<EventLoop>;
 
 class EventLoop : public std::enable_shared_from_this<EventLoop> {
+public:
+  using Func = std::function<void()>;
+
+private:
   template <typename Slot>
   struct SlotEventWrapper {
     using ProvidedFunc = Slot::ProvidedFunc;
@@ -33,8 +37,55 @@ class EventLoop : public std::enable_shared_from_this<EventLoop> {
     }
   };
 
+  struct JobWrapper {
+    Func func;
+    bool is_valid = false;
+
+    JobWrapper(Func func) {
+      this->func = std::move(func);
+      this->is_valid = true;
+    }
+
+    void call() const {
+      if (this->is_valid) {
+        this->func();
+      }
+    }
+  };
+  using JobWrapperPtr = std::shared_ptr<JobWrapper>;
+
 public:
-  using Func = std::function<void()>;
+  class JobHandle {
+    friend EventLoop;
+
+  public:
+    JobHandle() = default;
+    JobHandle(JobHandle&& other) = default;
+    JobHandle& operator=(JobHandle&& other) = default;
+
+    // JobHandle(JobHandle&& other) {
+    //   this->job = std::move(other.job);
+    // }
+
+    // JobHandle& operator=(JobHandle&& other) {
+    //   this->job = std::move(other.job);
+    //   return *this;
+    // }
+
+    ~JobHandle() {
+      if (auto ptr = this->job.lock()) {
+        ptr->is_valid = false;
+      }
+    }
+
+  private:
+    std::weak_ptr<JobWrapper> job;
+
+    JobHandle(const JobWrapperPtr& ptr) {
+      this->job = ptr;
+    }
+  };
+
 
   static EventLoopPtr make();
 
@@ -45,15 +96,15 @@ public:
     signal.connect(SlotEventWrapper(slot_ptr));
   }
 
-  void post(Func);
-  void repeat(Func);
+  JobHandle post(Func);
+  JobHandle repeat(Func);
 
   void start();
 
 private:
   const std::size_t _max_unqueue_events;
 
-  std::queue<Func> _onetime_jobs;
-  std::list<Func> _repeated_jobs;
+  std::queue<JobWrapperPtr> _onetime_jobs;
+  std::list<JobWrapperPtr> _repeated_jobs;
   std::queue<Func> _events;
 };

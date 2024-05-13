@@ -35,7 +35,7 @@ Replica::Replica(EventLoopPtr event_loop)
   this->_new_fd_signal = std::make_shared<Signal<int, PollEventTypeList, SignalPtr<PollEventType>>>();
   this->_removed_fd_signal = std::make_shared<Signal<int>>();
 
-  this->_event_loop->post([this]() {
+  this->_start_handle =  this->_event_loop->post([this]() {
     this->start();
   });
 }

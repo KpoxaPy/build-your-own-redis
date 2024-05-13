@@ -53,7 +53,7 @@ Handler::Handler(EventLoopPtr event_loop, int fd, TalkerPtr talker)
   this->_fd_event_signal = std::make_shared<Signal<PollEventType>>();
   this->_fd_event_signal->connect(this->_slot_fd_event);
 
-  this->_event_loop->post([this](){
+  this->_start_handle = this->_event_loop->post([this](){
     this->start();
   });
 }
@@ -79,7 +79,7 @@ void Handler::start() {
 
   this->setup_poll(false);
 
-  this->_event_loop->repeat([this]() {
+  this->_loop_handle = this->_event_loop->repeat([this]() {
     this->process_write();
   });
 }

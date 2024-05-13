@@ -65,6 +65,8 @@ private:
 
   EventLoopPtr _event_loop;
 
+  EventLoop::JobHandle _start_handle;
+
   std::optional<int> _server_fd;
 
   void start();
