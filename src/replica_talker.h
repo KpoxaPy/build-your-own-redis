@@ -23,5 +23,7 @@ private:
 
   int _state = 0;
 
+  std::size_t _bytes_in = 0;
+
   void process(const Message&);
 };

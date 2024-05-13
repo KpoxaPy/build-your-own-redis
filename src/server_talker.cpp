@@ -89,9 +89,7 @@ void ServerTalker::listen(Message message) {
       this->next_say(Message::Type::SimpleString, ss.str());
       this->next_say(Message::Type::SyncResponse, base64_decode(dummy_rdb_file));
 
-      this->next_say<ReplConfCommand>("GETACK", "*");
       this->_replicas_manager->replica_set_state(this->_replica_id.value(), IReplicasManager::ReplState::WRITE);
-
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");
     }

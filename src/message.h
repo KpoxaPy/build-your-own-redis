@@ -32,6 +32,8 @@ public:
   friend std::ostream& operator<<(std::ostream&, const Message&);
   std::string to_string() const;
 
+  std::size_t size() const;
+
 private:
   Type _type;
   ValueType _value;

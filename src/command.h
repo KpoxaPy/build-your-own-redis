@@ -68,7 +68,7 @@ class SetCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  SetCommand(std::string key, std::string value, std::optional<int> expire_ms);
+  SetCommand(std::string key, std::string value, std::optional<int> expire_ms = {});
   const std::string& key() const;
   const std::string& value() const;
   const std::optional<int>& expire_ms() const;

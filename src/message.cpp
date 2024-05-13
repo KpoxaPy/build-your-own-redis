@@ -57,6 +57,10 @@ std::string Message::to_string() const {
   return ss.str();
 }
 
+std::size_t Message::size() const {
+  return this->to_string().size();
+}
+
 std::ostream& operator<<(std::ostream& stream, const Message& message) {
   if (message._type == Message::Type::Undefined) {
     stream << MESSAGE_UNDEFINED << std::endl;

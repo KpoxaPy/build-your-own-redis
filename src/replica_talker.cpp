@@ -101,13 +101,15 @@ void ReplicaTalker::process(const Message& message) {
       }
       if (to_lower_case(argv[0]) == "getack") {
         if (argv[1] == "*") {
-          this->next_say<ReplConfCommand>("ACK", std::to_string(0));
+          this->next_say<ReplConfCommand>("ACK", std::to_string(this->_bytes_in));
         }
       }
 
     } else {
       std::cerr << "Unexpected command from master" << std::endl;
     }
+
+    this->_bytes_in += message.size();
   } catch (const CommandParseError& err) {
     std::cerr << "Error in parsing command from master: " << err.what() << std::endl;
   }
