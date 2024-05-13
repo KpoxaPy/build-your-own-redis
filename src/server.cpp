@@ -40,13 +40,20 @@ ServerInfo ServerInfo::build(std::size_t argc, char** argv) {
       info.server.tcp_port = std::atoi(argv[arg_pos + 1]);
       arg_pos += 2;
     } else if (std::string("--replicaof") == argv[arg_pos]) {
-      if (arg_pos + 2 >= argc) {
-        throw std::runtime_error("--replicaof argument requires 2 arguments");
+      if (arg_pos + 1 >= argc) {
+        throw std::runtime_error("--replicaof argument requires argument [host port]");
       }
       
       info.replication.role = "slave";
-      info.replication.master_host = argv[arg_pos + 1];
-      info.replication.master_port = std::atoi(argv[arg_pos + 2]);
+      std::string arg = argv[arg_pos + 1];
+      auto delim_pos = arg.find(' ');
+
+      if (delim_pos == arg.npos) {
+        throw std::runtime_error("--replicaof argument requires argument [host port]");
+      }
+      
+      info.replication.master_host = {arg.begin() , arg.begin() + delim_pos};
+      info.replication.master_port = std::atoi(std::string(arg.begin() + delim_pos + 1, arg.end()).data());
       arg_pos += 3;
     } else if (std::string("-v") == argv[arg_pos]) {
       info.debug_level = 1;
