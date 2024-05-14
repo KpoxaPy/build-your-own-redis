@@ -8,7 +8,11 @@
 #include "storage_middleware.h"
 #include "handlers_manager.h"
 
+#include "rdb_parser.h"
+
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 
 class StorageMiddleware;
 
@@ -20,10 +24,15 @@ int main(int argc, char **argv) {
     auto event_loop = EventLoop::make();
 
     auto poller = std::make_shared<Poller>(event_loop);
-    auto storage = std::make_shared<Storage>(event_loop);
+    auto storage = std::make_shared<Storage>();
     auto storage_middleware = std::make_shared<StorageMiddleware>(event_loop);
     auto handlers_manager = std::make_shared<HandlersManager>(event_loop);
     auto server = std::make_shared<Server>(event_loop, info);
+
+    if (std::filesystem::exists(info.server.db_file_path())) {
+      std::ifstream dump(info.server.db_file_path(), std::ios::binary);
+      RDBParse(dump, *storage);
+    }
 
     ReplicaPtr replica;
     if (server->is_replica()) {

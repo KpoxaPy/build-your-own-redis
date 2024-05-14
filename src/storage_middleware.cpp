@@ -12,6 +12,10 @@ void StorageMiddleware::set_storage(IStoragePtr storage) {
   this->_storage = storage;
 }
 
+void StorageMiddleware::restore(std::string key, std::string value, std::optional<Timepoint> expire_time) {
+  this->_storage->restore(key, value, expire_time);
+}
+
 void StorageMiddleware::set(std::string key, std::string value, std::optional<int> expire_ms) {
   this->_storage->set(key, value, expire_ms);
 

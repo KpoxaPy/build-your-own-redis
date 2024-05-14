@@ -1,6 +1,6 @@
 #pragma once
 
-#include "events.h"
+#include "rdb_parser.h"
 
 #include <chrono>
 #include <memory>
@@ -8,10 +8,7 @@
 #include <string>
 #include <unordered_map>
 
-using Clock = std::chrono::steady_clock;
-using Timepoint = Clock::time_point;
-
-class IStorage {
+class IStorage : public IRDBParserListener {
 public:
   virtual ~IStorage() = default;
 
@@ -30,6 +27,7 @@ public:
   const std::string& data() const;
 
   void setExpire(std::chrono::milliseconds ms);
+  void setExpireTime(Timepoint tp);
   std::optional<Timepoint> getExpire() const;
 
 private:
@@ -40,7 +38,9 @@ private:
 
 class Storage : public IStorage {
 public:
-  Storage(EventLoopPtr event_loop);
+  Storage();
+
+  void restore(std::string key, std::string value, std::optional<Timepoint> expire_time) override;
 
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;
@@ -48,7 +48,5 @@ public:
   std::vector<std::string> keys(std::string_view selector) const override;
 
 private:
-  EventLoopPtr _event_loop;
-
   std::unordered_map<std::string, Value> _storage;
 };

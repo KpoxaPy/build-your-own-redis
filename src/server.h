@@ -4,6 +4,7 @@
 #include "poller.h"
 #include "signal_slot.h"
 
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -23,6 +24,8 @@ struct ServerInfo {
     std::string dbfilename;
 
     std::string to_string() const;
+
+    std::filesystem::path db_file_path() const; 
   } server;
 
   struct Replication {

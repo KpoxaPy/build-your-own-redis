@@ -16,12 +16,23 @@ void Value::setExpire(std::chrono::milliseconds ms) {
   this->_expire_time = Clock::now() + ms;
 }
 
+void Value::setExpireTime(Timepoint tp) {
+  this->_expire_time = tp;
+}
+
 std::optional<Timepoint> Value::getExpire() const {
   return this->_expire_time;
 }
 
-Storage::Storage(EventLoopPtr event_loop)
-  : _event_loop(event_loop) {
+Storage::Storage() {
+}
+
+void Storage::restore(std::string key, std::string value, std::optional<Timepoint> expire_time) {
+  auto& stored_value = this->_storage[key] = value;
+
+  if (expire_time) {
+    stored_value.setExpireTime(expire_time.value());
+  }
 }
 
 void Storage::set(std::string key, std::string value, std::optional<int> expire_ms) {

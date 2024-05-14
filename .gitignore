@@ -57,3 +57,4 @@ rules.ninja
 .vscode/
 
 .gdbinit
+dump.rdb

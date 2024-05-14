@@ -44,6 +44,10 @@ std::string_view skip(std::string_view str, std::string_view what) {
   }
 }
 
+std::optional<int> parseInt(const std::string& str) {
+  return parseInt(str.data(), str.size());
+}
+
 std::optional<int> parseInt(const char* first, std::size_t size) {
   int value;
 

@@ -3,7 +3,10 @@
 #include "base64.h"
 #include "utils.h"
 
-const std::string dummy_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
+#include <filesystem>
+#include <fstream>
+
+const std::string empty_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 
 ServerTalker::ServerTalker(EventLoopPtr event_loop)
   : _event_loop(event_loop)
@@ -116,7 +119,14 @@ void ServerTalker::listen(Message message) {
         << " " << this->_server->info().replication.master_replid
         << " " << this->_server->info().replication.master_repl_offset;
       this->next_say(Message::Type::SimpleString, ss.str());
-      this->next_say(Message::Type::SyncResponse, base64_decode(dummy_rdb_file));
+
+      if (std::filesystem::exists(this->_server->info().server.db_file_path())) {
+        std::ifstream ifs(this->_server->info().server.db_file_path(), std::ios::binary);
+        std::string contents(std::istreambuf_iterator<char>(ifs), {});
+        this->next_say(Message::Type::SyncResponse, contents);
+      } else {
+        this->next_say(Message::Type::SyncResponse, base64_decode(empty_rdb_file));
+      }
 
       this->_replicas_manager->replica_set_state(this->_replica_id.value(), IReplicasManager::ReplState::WRITE);
 

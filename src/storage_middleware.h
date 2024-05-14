@@ -3,6 +3,7 @@
 #include "command.h"
 #include "message.h"
 #include "events.h"
+#include "rdb_parser.h"
 #include "signal_slot.h"
 #include "storage.h"
 
@@ -79,6 +80,8 @@ public:
   StorageMiddleware(EventLoopPtr event_loop);
 
   void set_storage(IStoragePtr);
+
+  void restore(std::string key, std::string value, std::optional<Timepoint> expire_time) override;
 
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;

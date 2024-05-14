@@ -1,6 +1,7 @@
 #include "replica_talker.h"
 
 #include "command.h"
+#include "rdb_parser.h"
 #include "utils.h"
 
 enum : int {
@@ -55,7 +56,9 @@ void ReplicaTalker::listen(Message message) {
     }
   } else if (this->_state == WAIT_FOR_RDB_FILE_SYNC) {
     if (message.type() == Message::Type::SyncResponse) {
-      // auto str = get<std::string>(message.getValue());
+      auto str = get<std::string>(message.getValue());
+      std::istringstream rdb_dump(str);
+      RDBParse(rdb_dump, static_cast<IRDBParserListener&>(*this->_storage.get()));
 
       this->_state = WAIT_SERVER_COMMANDS;
     }

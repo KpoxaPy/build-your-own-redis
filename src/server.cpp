@@ -126,6 +126,10 @@ std::string ServerInfo::Server::to_string() const {
   return ss.str();
 }
 
+std::filesystem::path ServerInfo::Server::db_file_path() const {
+  return std::filesystem::path{this->dir} / this->dbfilename;
+}
+
 std::string ServerInfo::Replication::to_string() const {
   std::ostringstream ss;
 
