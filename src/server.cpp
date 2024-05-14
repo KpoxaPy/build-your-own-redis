@@ -34,14 +34,15 @@ ServerInfo ServerInfo::build(std::size_t argc, char** argv) {
   while (arg_pos < argc) {
     if (std::string("--port") == argv[arg_pos]) {
       if (arg_pos + 1 >= argc) {
-        throw std::runtime_error("--port argument requires argument");
+        throw std::runtime_error("--port requires argument");
       }
 
       info.server.tcp_port = std::atoi(argv[arg_pos + 1]);
       arg_pos += 2;
+
     } else if (std::string("--replicaof") == argv[arg_pos]) {
       if (arg_pos + 1 >= argc) {
-        throw std::runtime_error("--replicaof argument requires argument [host port]");
+        throw std::runtime_error("--replicaof requires argument \"[host port]\"");
       }
       
       info.replication.role = "slave";
@@ -49,20 +50,39 @@ ServerInfo ServerInfo::build(std::size_t argc, char** argv) {
       auto delim_pos = arg.find(' ');
 
       if (delim_pos == arg.npos) {
-        throw std::runtime_error("--replicaof argument requires argument [host port]");
+        throw std::runtime_error("--replicaof requires argument [host port]");
       }
       
       info.replication.master_host = {arg.begin() , arg.begin() + delim_pos};
       info.replication.master_port = std::atoi(std::string(arg.begin() + delim_pos + 1, arg.end()).data());
-      arg_pos += 3;
+      arg_pos += 2;
+
+    } else if (std::string("--dir") == argv[arg_pos]) {
+      if (arg_pos + 1 >= argc) {
+        throw std::runtime_error("--dir requires argument");
+      }
+
+      info.server.dir = argv[arg_pos + 1];
+      arg_pos += 2;
+
+    } else if (std::string("--dbfilename") == argv[arg_pos]) {
+      if (arg_pos + 1 >= argc) {
+        throw std::runtime_error("--dbfilename requires argument");
+      }
+
+      info.server.dbfilename = argv[arg_pos + 1];
+      arg_pos += 2;
+
     } else if (std::string("-v") == argv[arg_pos]) {
       info.debug_level = 1;
 
       arg_pos += 1;
+
     } else if (std::string("-vv") == argv[arg_pos]) {
       info.debug_level = 2;
 
       arg_pos += 1;
+
     } else {
       std::ostringstream ss;
       ss << "unexpected argument: " << argv[arg_pos];
