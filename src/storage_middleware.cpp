@@ -147,6 +147,8 @@ void StorageMiddleware::WaitHandle::update_replica_ack(ReplicaHandle& replica) {
 
   ++this->replicas_ready;
 
+  if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Wait replicas stat: " << this->replicas_ready << "/" << this->replicas_expected << std::endl;
+
   if (this->replicas_expected >= this->replicas_ready) {
     this->reply();
   }
@@ -161,6 +163,8 @@ void StorageMiddleware::WaitHandle::setup() {
       this->replica_ack_waitlist[id] = handle.bytes_pushed;
     }
   }
+
+  if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Wait replicas stat: " << this->replicas_ready << "/" << this->replicas_expected << std::endl;
 
   if (this->replicas_expected <= this->replicas_ready) {
     this->reply();
@@ -180,6 +184,7 @@ void StorageMiddleware::WaitHandle::setup() {
   }
 
   this->timeout = this->parent._event_loop->set_timeout(this->timeout_ms, [this]() {
+    if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Wait timeout" << std::endl;
     this->reply();
   });
 }
