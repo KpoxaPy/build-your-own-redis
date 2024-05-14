@@ -72,3 +72,9 @@ std::string to_lower_case(std::string_view view) {
   std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) { return std::tolower(ch); });
   return result;
 }
+
+std::string to_upper_case(std::string_view view) {
+  std::string result{view.begin(), view.end()};
+  std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) { return std::toupper(ch); });
+  return result;
+}

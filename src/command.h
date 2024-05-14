@@ -23,7 +23,8 @@ enum class CommandType {
   ReplConf,
   Psync,
   Wait,
-  Keys
+  Keys,
+  Config
 };
 
 class Command;
@@ -156,8 +157,8 @@ public:
   Message construct() const override;
 
 private:
- std::size_t _replicas;
- std::size_t _timeout_ms;
+  std::size_t _replicas;
+  std::size_t _timeout_ms;
 };
 
 class KeysCommand : public Command {
@@ -170,5 +171,23 @@ public:
   Message construct() const override;
 
 private:
- std::string _arg;
+  std::string _arg;
+};
+
+class ConfigCommand : public Command {
+public:
+  static CommandPtr try_parse(const Message&);
+
+  template <typename... Args>
+  ConfigCommand(std::string action, Args&&... args) : ConfigCommand(std::move(action), {std::forward<Args>(args)...}) {}
+  ConfigCommand(std::string action, std::initializer_list<std::string> args);
+
+  const std::string& action() const;
+  const std::vector<std::string>& args() const;
+
+  Message construct() const override;
+
+private:
+  std::string _action;
+  std::vector<std::string> _args;
 };

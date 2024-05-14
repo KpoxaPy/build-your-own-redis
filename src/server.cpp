@@ -87,6 +87,16 @@ std::string ServerInfo::to_string(std::unordered_set<std::string> parts) const {
   return ss.str();
 }
 
+std::optional<std::string> ServerInfo::get_config_value(std::string_view key) const {
+  if (key == "dir") {
+    return this->server.dir;
+  } else if (key == "dbfilename") {
+    return this->server.dbfilename;
+  }
+  
+  return {};
+}
+
 std::string ServerInfo::Server::to_string() const {
   std::ostringstream ss;
 

@@ -19,6 +19,9 @@ struct ServerInfo {
   struct Server {
     int tcp_port;
 
+    std::string dir;
+    std::string dbfilename;
+
     std::string to_string() const;
   } server;
 
@@ -34,6 +37,7 @@ struct ServerInfo {
   } replication;
 
   std::string to_string(std::unordered_set<std::string>) const;
+  std::optional<std::string> get_config_value(std::string_view) const;
 };
 
 class Server;

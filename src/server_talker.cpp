@@ -1,6 +1,7 @@
 #include "server_talker.h"
 
 #include "base64.h"
+#include "utils.h"
 
 const std::string dummy_rdb_file = "UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==";
 
@@ -54,6 +55,24 @@ void ServerTalker::listen(Message message) {
         array.emplace_back(Message::Type::BulkString, std::move(key));
       }
       this->next_say(Message::Type::Array, std::move(array));
+
+    } else if (type == CommandType::Config) {
+      auto& config_command = static_cast<ConfigCommand&>(*command);
+
+      auto action = to_lower_case(config_command.action());
+      if (action == "get") {
+        std::vector<Message> array;
+        for (const auto& key : config_command.args()) {
+          auto value = this->_server->info().get_config_value(key);
+          if (value) {
+            array.emplace_back(Message::Type::BulkString, key);
+            array.emplace_back(Message::Type::BulkString, value.value());
+          }
+        }
+        this->next_say(Message::Type::Array, std::move(array));
+      } else {
+        this->next_say(Message::Type::SimpleError, "unknown action for config command");
+      }
 
     } else if (type == CommandType::Info) {
       auto& info_command = static_cast<InfoCommand&>(*command);

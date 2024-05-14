@@ -46,6 +46,8 @@ CommandPtr Command::try_parse(const Message& message) {
     return WaitCommand::try_parse(message);
   } else if (command == "keys") {
     return KeysCommand::try_parse(message);
+  } else if (command == "config") {
+    return ConfigCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");
@@ -454,6 +456,61 @@ Message KeysCommand::construct() const {
   std::vector<Message> parts;
   parts.emplace_back(Message::Type::BulkString, "KEYS");
   parts.emplace_back(Message::Type::BulkString, this->_arg);
+
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+CommandPtr ConfigCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  auto command = std::make_shared<ConfigCommand>("");
+
+  if (data.size() <= 1) {
+    return command;
+  }
+
+  if (data[1].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "CONFIG command must have first argument with type BulkString";
+    throw CommandParseError(ss.str());
+  }
+  command->_action = std::get<std::string>(data[1].getValue());
+
+  std::size_t data_pos = 2;
+  while (data_pos < data.size()) {
+    if (data[data_pos].type() != Message::Type::BulkString) {
+      throw CommandParseError("CONFIG arguments should be BulkString");
+    }
+
+    command->_args.emplace_back(std::get<std::string>(data[data_pos].getValue()));
+    data_pos += 1;
+  }
+
+  return command;
+}
+
+ConfigCommand::ConfigCommand(std::string action, std::initializer_list<std::string> args)
+  : _action(std::move(action)), _args(args) {
+  this->_type = CommandType::Config;
+}
+
+const std::string& ConfigCommand::action() const {
+  return this->_action;
+}
+
+const std::vector<std::string>& ConfigCommand::args() const {
+  return this->_args;
+}
+
+Message ConfigCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "CONFIG");
+  parts.emplace_back(Message::Type::BulkString, to_upper_case(this->_action));
+
+  for (const auto& arg: this->_args) {
+    parts.emplace_back(Message::Type::BulkString, arg);
+  }
 
   return Message(Message::Type::Array, parts);
 }

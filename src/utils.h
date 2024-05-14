@@ -16,6 +16,7 @@ std::string_view skip(std::string_view str, std::string_view what);
 std::optional<int> parseInt(const char* first, std::size_t size);
 
 std::string to_lower_case(std::string_view);
+std::string to_upper_case(std::string_view);
 
 template <typename T>
 std::string demangled() {
