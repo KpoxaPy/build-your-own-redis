@@ -18,6 +18,8 @@ public:
   virtual void set(std::string key, std::string value, std::optional<int> expire_ms) = 0;
   virtual std::optional<std::string> get(std::string key) = 0;
 
+  virtual std::vector<std::string> keys(std::string_view selector) const = 0;
+
 };
 using IStoragePtr = std::shared_ptr<IStorage>;
 
@@ -42,6 +44,8 @@ public:
 
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;
+
+  std::vector<std::string> keys(std::string_view selector) const override;
 
 private:
   EventLoopPtr _event_loop;

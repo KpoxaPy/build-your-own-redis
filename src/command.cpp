@@ -44,6 +44,8 @@ CommandPtr Command::try_parse(const Message& message) {
     return PsyncCommand::try_parse(message);
   } else if (command == "wait") {
     return WaitCommand::try_parse(message);
+  } else if (command == "keys") {
+    return KeysCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");
@@ -416,6 +418,42 @@ Message WaitCommand::construct() const {
   parts.emplace_back(Message::Type::BulkString, "WAIT");
   parts.emplace_back(Message::Type::BulkString, std::to_string(this->_replicas));
   parts.emplace_back(Message::Type::BulkString, std::to_string(this->_timeout_ms));
+
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+CommandPtr KeysCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  if (data.size() < 2) {
+    std::ostringstream ss;
+    ss << "KEYS command must have at least 1 argument, recieved " << data.size();
+    throw CommandParseError(ss.str());
+  }
+
+  if (data[1].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "KEYS command must have first argument with type BulkString";
+    throw CommandParseError(ss.str());
+  }
+
+  return std::make_shared<KeysCommand>(std::get<std::string>(data[1].getValue()));
+}
+
+KeysCommand::KeysCommand(std::string arg) 
+  : _arg(arg) {
+  this->_type = CommandType::Keys;
+}
+
+const std::string& KeysCommand::arg() const {
+  return this->_arg;
+}
+
+Message KeysCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "KEYS");
+  parts.emplace_back(Message::Type::BulkString, this->_arg);
 
   return Message(Message::Type::Array, parts);
 }

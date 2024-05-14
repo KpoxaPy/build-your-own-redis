@@ -83,6 +83,8 @@ public:
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;
 
+  std::vector<std::string> keys(std::string_view selector) const override;
+
   ReplicaId add_replica(SlotPtr<Message> slot_message) override;
   void remove_replica(ReplicaId) override;
   bool replica_process_conf(ReplicaId, CommandPtr) override;

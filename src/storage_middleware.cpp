@@ -23,6 +23,10 @@ std::optional<std::string> StorageMiddleware::get(std::string key) {
   return this->_storage->get(std::move(key));
 }
 
+std::vector<std::string> StorageMiddleware::keys(std::string_view selector) const {
+  return this->_storage->keys(selector);
+}
+
 ReplicaId StorageMiddleware::add_replica(SlotPtr<Message> slot_message) {
   auto id = this->_next_replica_id++;
   this->_replicas.try_emplace(id, *this, id, ReplState::MET, std::move(slot_message));

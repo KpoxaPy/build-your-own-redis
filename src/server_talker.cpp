@@ -45,6 +45,16 @@ void ServerTalker::listen(Message message) {
         this->next_say(Message::Type::BulkString);
       }
 
+    } else if (type == CommandType::Keys) {
+      auto& keys_command = static_cast<KeysCommand&>(*command);
+      auto keys = this->_storage->keys(keys_command.arg());
+
+      std::vector<Message> array;
+      for (auto& key : keys) {
+        array.emplace_back(Message::Type::BulkString, std::move(key));
+      }
+      this->next_say(Message::Type::Array, std::move(array));
+
     } else if (type == CommandType::Info) {
       auto& info_command = static_cast<InfoCommand&>(*command);
 

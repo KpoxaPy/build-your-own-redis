@@ -46,3 +46,15 @@ std::optional<std::string> Storage::get(std::string key) {
 
   return value.data();
 }
+
+std::vector<std::string> Storage::keys(std::string_view selector) const {
+  std::vector<std::string> keys;
+
+  // ignoring selector for now, return all keys as selector=*
+
+  for (const auto& [key, value]: this->_storage) {
+    keys.emplace_back(key);
+  }
+
+  return keys;
+}

@@ -22,7 +22,8 @@ enum class CommandType {
   Info,
   ReplConf,
   Psync,
-  Wait
+  Wait,
+  Keys
 };
 
 class Command;
@@ -157,4 +158,17 @@ public:
 private:
  std::size_t _replicas;
  std::size_t _timeout_ms;
+};
+
+class KeysCommand : public Command {
+public:
+  static CommandPtr try_parse(const Message&);
+
+  KeysCommand(std::string arg);
+  const std::string& arg() const;
+
+  Message construct() const override;
+
+private:
+ std::string _arg;
 };
