@@ -67,7 +67,7 @@ void Poller::start() {
       return;
     }
 
-    auto poll_res = ::poll(this->_fds.data(), this->_fds.size(), 0);
+    auto poll_res = ::poll(this->_fds.data(), this->_fds.size(), 1);
 
     if (poll_res < 0) {
       std::ostringstream ss;
