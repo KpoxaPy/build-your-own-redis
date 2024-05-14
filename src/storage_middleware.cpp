@@ -119,8 +119,10 @@ StorageMiddleware::WaitHandle::WaitHandle(
     , replicas_expected(count)
     , timeout_ms(timeout_ms)
     , slot_message(slot_message) {
+  this->replicas_expected = std::min(this->replicas_expected, this->parent._replicas.size());
   if (DEBUG_LEVEL >= 1) {
     std::cerr << "DEBUG Wait add" << std::endl;
+    std::cerr << "  replicas_expected requested = " << count << std::endl;
     std::cerr << "  replicas_expected = " << this->replicas_expected << std::endl;
     std::cerr << "  timeout_ms = " << this->timeout_ms << std::endl;
   }
@@ -149,7 +151,7 @@ void StorageMiddleware::WaitHandle::update_replica_ack(ReplicaHandle& replica) {
 
   if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Wait replicas stat: " << this->replicas_ready << "/" << this->replicas_expected << std::endl;
 
-  if (this->replicas_expected >= this->replicas_ready) {
+  if (this->replicas_expected <= this->replicas_ready) {
     this->reply();
   }
 }
@@ -167,11 +169,6 @@ void StorageMiddleware::WaitHandle::setup() {
   if (DEBUG_LEVEL >= 1) std::cerr << "DEBUG Wait replicas stat: " << this->replicas_ready << "/" << this->replicas_expected << std::endl;
 
   if (this->replicas_expected <= this->replicas_ready) {
-    this->reply();
-    return;
-  }
-
-  if (this->replicas_ready == this->parent._replicas.size()) {
     this->reply();
     return;
   }
