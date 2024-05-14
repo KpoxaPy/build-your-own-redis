@@ -32,10 +32,16 @@ using IReplicasManagerPtr = std::shared_ptr<IReplicasManager>;
 
 class StorageMiddleware : public IStorage, public IReplicasManager {
   struct ReplicaHandle {
+    StorageMiddleware& parent;
+
+    ReplicaId id;
     ReplState state;
     SlotPtr<Message> slot_message;
 
+    std::size_t bytes_pushed = 0;
     std::size_t bytes_ack = 0;
+
+    ReplicaHandle(StorageMiddleware&, ReplicaId id, ReplState state, SlotPtr<Message> slot_message);
 
     bool process_conf(CommandPtr);
     void set_state(ReplState);
@@ -52,7 +58,6 @@ class StorageMiddleware : public IStorage, public IReplicasManager {
 
     StorageMiddleware& parent;
 
-    std::size_t bytes_expected;
     std::size_t replicas_expected;
     std::size_t replicas_ready;
 
@@ -63,6 +68,9 @@ class StorageMiddleware : public IStorage, public IReplicasManager {
 
     WaitList::iterator it;
 
+    std::unordered_map<ReplicaId, std::size_t> replica_ack_waitlist;
+
+    void update_replica_ack(ReplicaHandle&);
     void setup();
     void reply();
   };
@@ -90,8 +98,6 @@ private:
 
   ReplicaId _next_replica_id = 0;
   std::unordered_map<ReplicaId, ReplicaHandle> _replicas;
-
-  std::size_t _bytes_pushed = 0;
 
   WaitList _waits;
 

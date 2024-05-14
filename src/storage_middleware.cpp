@@ -1,6 +1,7 @@
 #include "storage_middleware.h"
 
 #include "command.h"
+#include "debug.h"
 #include "utils.h"
 
 StorageMiddleware::StorageMiddleware(EventLoopPtr event_loop)
@@ -24,10 +25,7 @@ std::optional<std::string> StorageMiddleware::get(std::string key) {
 
 ReplicaId StorageMiddleware::add_replica(SlotPtr<Message> slot_message) {
   auto id = this->_next_replica_id++;
-  this->_replicas[id] = ReplicaHandle{
-    .state = ReplState::MET,
-    .slot_message = std::move(slot_message),
-  };
+  this->_replicas.try_emplace(id, *this, id, ReplState::MET, std::move(slot_message));
   return id;
 }
 
@@ -61,10 +59,13 @@ void StorageMiddleware::wait_for(std::size_t count, std::size_t timeout_ms, Slot
 }
 
 void StorageMiddleware::push(const Message & message) {
-  this->_bytes_pushed += message.size();
   for (auto& [id, handle]: this->_replicas) {
     handle.push(message);
   }
+}
+
+StorageMiddleware::ReplicaHandle::ReplicaHandle(StorageMiddleware& parent, ReplicaId id, ReplState state, SlotPtr<Message> slot_message)
+  : parent(parent), id(id), state(state), slot_message(slot_message) {
 }
 
 bool StorageMiddleware::ReplicaHandle::process_conf(CommandPtr command) {
@@ -82,6 +83,11 @@ bool StorageMiddleware::ReplicaHandle::process_conf(CommandPtr command) {
       auto maybe_bytes_ack = parseInt(argv[1].data(), argv[1].size());
       if (maybe_bytes_ack) {
         this->bytes_ack = maybe_bytes_ack.value();
+
+        for (auto it = this->parent._waits.begin(); it != this->parent._waits.end();) {
+          auto& wait = *it++;
+          wait->update_replica_ack(*this);
+        }
       }
 
       return false;
@@ -99,6 +105,8 @@ void StorageMiddleware::ReplicaHandle::push(const Message& message) {
     return;
   }
 
+  this->bytes_pushed += message.size();
+
   this->slot_message->call(message);
 }
 
@@ -108,17 +116,49 @@ StorageMiddleware::WaitHandle::WaitHandle(
   std::size_t timeout_ms,
   SlotPtr<Message> slot_message)
     : parent(parent)
-    , bytes_expected(parent._bytes_pushed)
     , replicas_expected(count)
     , timeout_ms(timeout_ms)
     , slot_message(slot_message) {
+  if (DEBUG_LEVEL >= 1) {
+    std::cerr << "DEBUG Wait add" << std::endl;
+    std::cerr << "  replicas_expected = " << this->replicas_expected << std::endl;
+    std::cerr << "  timeout_ms = " << this->timeout_ms << std::endl;
+  }
+}
+
+void StorageMiddleware::WaitHandle::update_replica_ack(ReplicaHandle& replica) {
+  auto it = this->replica_ack_waitlist.find(replica.id);
+  if (it == this->replica_ack_waitlist.end()) {
+    return;
+  }
+
+  auto expected_bytes = it->second;
+  this->replica_ack_waitlist.erase(it);
+
+  if (DEBUG_LEVEL >= 1) {
+    std::cerr << "DEBUG Wait recieved ack from repl #" << replica.id
+      << " ack " << replica.bytes_ack << " bytes,"
+      << " expected " << expected_bytes << " bytes" << std::endl;
+  }
+
+  if (replica.bytes_ack < expected_bytes) {
+    return;
+  }
+
+  ++this->replicas_ready;
+
+  if (this->replicas_expected >= this->replicas_ready) {
+    this->reply();
+  }
 }
 
 void StorageMiddleware::WaitHandle::setup() {
   this->replicas_ready = 0;
   for (auto& [id, handle] : this->parent._replicas) {
-    if (handle.bytes_ack >= this->bytes_expected) {
-      this->replicas_ready++;
+    if (handle.bytes_ack >= handle.bytes_pushed) {
+      ++this->replicas_ready;
+    } else {
+      this->replica_ack_waitlist[id] = handle.bytes_pushed;
     }
   }
 
@@ -132,10 +172,11 @@ void StorageMiddleware::WaitHandle::setup() {
     return;
   }
 
-  for (auto& [id, handle] : this->parent._replicas) {
-    if (handle.bytes_ack < this->bytes_expected) {
-      // TODO send getack
+  for (auto& [id, bytes_expected] : this->replica_ack_waitlist) {
+    if (DEBUG_LEVEL >= 1) {
+      std::cerr << "DEBUG Send getack to repl #" << id << ", expected " << bytes_expected << " bytes" << std::endl;
     }
+    this->parent._replicas.at(id).push(ReplConfCommand("GETACK", "*").construct());
   }
 
   this->timeout = this->parent._event_loop->set_timeout(this->timeout_ms, [this]() {
@@ -144,6 +185,10 @@ void StorageMiddleware::WaitHandle::setup() {
 }
 
 void StorageMiddleware::WaitHandle::reply() {
+  if (DEBUG_LEVEL >= 1) {
+    std::cerr << "DEBUG Wait reply" << std::endl;
+    std::cerr << "  replicas_ready = " << this->replicas_ready << std::endl;
+  }
   this->slot_message->call(Message(Message::Type::Integer, static_cast<int>(this->replicas_ready)));
   this->timeout.invalidate();
   parent._waits.erase(this->it);
