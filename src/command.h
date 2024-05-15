@@ -24,7 +24,8 @@ enum class CommandType {
   Psync,
   Wait,
   Keys,
-  Config
+  Config,
+  Type,
 };
 
 class Command;
@@ -190,4 +191,18 @@ public:
 private:
   std::string _action;
   std::vector<std::string> _args;
+};
+
+class TypeCommand : public Command {
+public:
+  static CommandPtr try_parse(const Message&);
+
+  TypeCommand(std::string key);
+
+  const std::string& key() const;
+
+  Message construct() const override;
+
+private:
+  std::string _key;
 };

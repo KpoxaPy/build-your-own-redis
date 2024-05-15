@@ -27,6 +27,10 @@ std::optional<std::string> StorageMiddleware::get(std::string key) {
   return this->_storage->get(std::move(key));
 }
 
+StorageType StorageMiddleware::type(std::string key) {
+  return this->_storage->type(std::move(key));
+}
+
 std::vector<std::string> StorageMiddleware::keys(std::string_view selector) const {
   return this->_storage->keys(selector);
 }

@@ -3,10 +3,18 @@
 #include "rdb_parser.h"
 
 #include <chrono>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
+
+enum class StorageType {
+  None,
+  String,
+};
+
+std::string to_string(StorageType type);
 
 class IStorage : public IRDBParserListener {
 public:
@@ -14,6 +22,7 @@ public:
 
   virtual void set(std::string key, std::string value, std::optional<int> expire_ms) = 0;
   virtual std::optional<std::string> get(std::string key) = 0;
+  virtual StorageType type(std::string key) = 0;
 
   virtual std::vector<std::string> keys(std::string_view selector) const = 0;
 
@@ -44,6 +53,7 @@ public:
 
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;
+  StorageType type(std::string key) override;
 
   std::vector<std::string> keys(std::string_view selector) const override;
 

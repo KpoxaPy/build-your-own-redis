@@ -2,6 +2,15 @@
 
 #include <memory>
 
+std::string to_string(StorageType type) {
+  switch (type) {
+    case StorageType::None: return "none";
+    case StorageType::String: return "string";
+  }
+
+  throw std::runtime_error("unknown type of StorageType");
+}
+
 Value::Value(std::string data)
   : _data(data)
   , _create_time(Clock::now())
@@ -56,6 +65,15 @@ std::optional<std::string> Storage::get(std::string key) {
   }
 
   return value.data();
+}
+
+StorageType Storage::type(std::string key) {
+  auto it = this->_storage.find(key);
+  if (it == this->_storage.end()) {
+    return StorageType::None;
+  }
+
+  return StorageType::String;
 }
 
 std::vector<std::string> Storage::keys(std::string_view selector) const {

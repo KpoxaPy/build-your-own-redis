@@ -85,6 +85,7 @@ public:
 
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;
+  StorageType type(std::string key) override;
 
   std::vector<std::string> keys(std::string_view selector) const override;
 

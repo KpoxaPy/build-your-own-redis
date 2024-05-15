@@ -48,6 +48,8 @@ CommandPtr Command::try_parse(const Message& message) {
     return KeysCommand::try_parse(message);
   } else if (command == "config") {
     return ConfigCommand::try_parse(message);
+  } else if (command == "type") {
+    return TypeCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");
@@ -512,5 +514,41 @@ Message ConfigCommand::construct() const {
     parts.emplace_back(Message::Type::BulkString, arg);
   }
 
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+
+CommandPtr TypeCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+  if (data.size() < 2) {
+    std::ostringstream ss;
+    ss << "TYPE command must have at least 1 argument, recieved " << data.size();
+    throw CommandParseError(ss.str());
+  }
+
+  if (data[1].type() != Message::Type::BulkString) {
+    std::ostringstream ss;
+    ss << "TYPE command must have first argument with type BulkString";
+    throw CommandParseError(ss.str());
+  }
+
+  return std::make_shared<TypeCommand>(std::get<std::string>(data[1].getValue()));
+}
+
+TypeCommand::TypeCommand(std::string key)
+  : _key(key) {
+  this->_type = CommandType::Type;
+}
+
+const std::string& TypeCommand::key() const {
+  return this->_key;
+}
+
+Message TypeCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "TYPE");
+  parts.emplace_back(Message::Type::BulkString, this->_key);
   return Message(Message::Type::Array, parts);
 }
