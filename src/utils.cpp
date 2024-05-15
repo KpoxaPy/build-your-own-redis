@@ -82,3 +82,32 @@ std::string to_upper_case(std::string_view view) {
   std::transform(result.begin(), result.end(), result.begin(), [](unsigned char ch) { return std::toupper(ch); });
   return result;
 }
+
+std::int16_t byteswap(std::int16_t value) noexcept {
+  uint8_t* arr = reinterpret_cast<uint8_t*>(&value);
+  std::swap(arr[0], arr[1]);
+  return value;
+}
+
+std::uint32_t byteswap(std::uint32_t value) noexcept {
+  uint8_t* arr = reinterpret_cast<uint8_t*>(&value);
+  std::swap(arr[0], arr[3]);
+  std::swap(arr[1], arr[2]);
+  return value;
+}
+
+std::int32_t byteswap(std::int32_t value) noexcept {
+  uint8_t* arr = reinterpret_cast<uint8_t*>(&value);
+  std::swap(arr[0], arr[3]);
+  std::swap(arr[1], arr[2]);
+  return value;
+}
+
+std::string to_hex(const std::string& value) {
+  std::ostringstream ss;
+  for (const auto& ch : value) {
+    ss << std::hex << std::uppercase << std::setfill('0')
+      << std::setw(2) << ch;
+  }
+  return ss.str();
+}

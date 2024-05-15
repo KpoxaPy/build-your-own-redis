@@ -48,34 +48,12 @@ std::string print_args(Args&&... args) {
   return ss.str();
 }
 
-inline std::int16_t byteswap(std::int16_t value) noexcept {
-  uint8_t* arr = reinterpret_cast<uint8_t*>(&value);
-  std::swap(arr[0], arr[1]);
-  return value;
-}
+std::int16_t byteswap(std::int16_t value) noexcept;
+std::uint32_t byteswap(std::uint32_t value) noexcept;
+std::int32_t byteswap(std::int32_t value) noexcept;
 
-inline std::uint32_t byteswap(std::uint32_t value) noexcept {
-  uint8_t* arr = reinterpret_cast<uint8_t*>(&value);
-  std::swap(arr[0], arr[3]);
-  std::swap(arr[1], arr[2]);
-  return value;
-}
 
-inline std::int32_t byteswap(std::int32_t value) noexcept {
-  uint8_t* arr = reinterpret_cast<uint8_t*>(&value);
-  std::swap(arr[0], arr[3]);
-  std::swap(arr[1], arr[2]);
-  return value;
-}
-
-inline std::string to_hex(const std::string& value) {
-  std::ostringstream ss;
-  for (const auto& ch : value) {
-    ss << std::hex << std::uppercase << std::setfill('0')
-      << std::setw(2) << ch;
-  }
-  return ss.str();
-}
+std::string to_hex(const std::string& value);
 
 template <typename T>
 inline typename std::enable_if<std::is_integral<T>::value, std::string>::type
