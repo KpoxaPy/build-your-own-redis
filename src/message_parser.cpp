@@ -76,7 +76,7 @@ public:
     } else if (raw_message[0] == MESSAGE_INTEGER) {
       auto message = Message(Message::Type::Integer);
       if (raw_message.size() > 1) {
-        if (auto value = parseInt(raw_message.data() + 1, raw_message.size() - 1)) {
+        if (auto value = parseInt({raw_message.begin() + 1, raw_message.end()})) {
           message.setValue(value.value());
           return message;
         }
@@ -98,7 +98,7 @@ public:
       }
 
       int length;
-      if (auto value = parseInt(raw_message.data() + 1, raw_message.size() - 1)) {
+      if (auto value = parseInt({raw_message.begin() + 1, raw_message.end()})) {
         length = value.value();
       } else {
         std::ostringstream ss;
@@ -126,7 +126,7 @@ public:
       }
 
       int length;
-      if (auto value = parseInt(raw_message.data() + 1, raw_message.size() - 1)) {
+      if (auto value = parseInt({raw_message.begin() + 1, raw_message.end()})) {
         length = value.value();
       } else {
         std::ostringstream ss;
