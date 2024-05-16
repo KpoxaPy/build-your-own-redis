@@ -183,7 +183,7 @@ CommandPtr XAddCommand::try_parse(const Message& message) {
   StreamPartValue values;
 
   if (data.size() < 5) {
-    throw CommandParseError("XADD expects at least 4 argumens");
+    throw CommandParseError("XADD expects at least 4 arguments");
   }
 
   std::size_t data_pos = 1;
@@ -258,9 +258,9 @@ Message XAddCommand::construct() const {
   parts.emplace_back(Message::Type::BulkString, "XADD");
   parts.emplace_back(Message::Type::BulkString, this->_key);
   parts.emplace_back(Message::Type::BulkString, this->_stream_id.to_string());
-  for (const auto& value : this->_values) {
-    parts.emplace_back(Message::Type::BulkString, value.first);
-    parts.emplace_back(Message::Type::BulkString, value.second);
+  for (const auto& [key, value] : this->_values) {
+    parts.emplace_back(Message::Type::BulkString, key);
+    parts.emplace_back(Message::Type::BulkString, value);
   }
   return Message(Message::Type::Array, parts);
 }
@@ -275,7 +275,7 @@ CommandPtr XRangeCommand::try_parse(const Message& message) {
   BoundStreamId right_id;
 
   if (data.size() != 4) {
-    throw CommandParseError("XRANGE expects 3 argumens");
+    throw CommandParseError("XRANGE expects 3 arguments");
   }
 
   if (data[1].type() != Message::Type::BulkString) {
@@ -329,5 +329,93 @@ Message XRangeCommand::construct() const {
   parts.emplace_back(Message::Type::BulkString, this->_key);
   parts.emplace_back(Message::Type::BulkString, this->_left_id.to_string());
   parts.emplace_back(Message::Type::BulkString, this->_right_id.to_string());
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+CommandPtr XReadCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+
+
+  if (data.size() < 4) {
+    throw CommandParseError("XREAD expects at least 3 arguments");
+  }
+
+  if ((data.size() - 2) % 2 != 0) {
+    throw CommandParseError("XREAD expects full pairs for streams");
+  }
+
+  const std::size_t expected_streams = (data.size() - 2) / 2;
+
+  std::vector<std::string> stream_keys;
+  stream_keys.reserve(expected_streams);
+
+  std::vector<StreamId> stream_ids;
+  stream_ids.reserve(expected_streams);
+
+  std::size_t data_pos = 1;
+  while (data_pos < data.size()) {
+    if (data_pos == 1) {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        throw CommandParseError("expected bulk string \"streams\"");
+      }
+      if (to_lower_case(std::get<std::string>(data[data_pos].getValue())) != "streams") {
+        throw CommandParseError("expected bulk string \"streams\"");
+      }
+      ++data_pos;
+
+    } else if (data_pos < data.size() and stream_keys.size() < expected_streams) {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        throw CommandParseError("stream_key has invalid type");
+      }
+      stream_keys.emplace_back(std::get<std::string>(data[data_pos].getValue()));
+      ++data_pos;
+
+    } else if (data_pos < data.size() and stream_ids.size() < expected_streams) {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        throw CommandParseError("stream_id has invalid type");
+      }
+
+      try {
+        stream_ids.emplace_back(StreamId{std::get<std::string>(data[data_pos].getValue())});
+      } catch (const StreamIdParseError& err) {
+        throw CommandParseError(err.what());
+      }
+
+      ++data_pos;
+
+    } else {
+      throw CommandParseError("expected pairs of values");
+    }
+  }
+
+  StreamsReadRequest request;
+  request.reserve(expected_streams);
+
+  for (std::size_t i = 0; i < expected_streams; ++i) {
+    request.emplace_back(std::move(stream_keys[i]), std::move(stream_ids[i]));
+  }
+
+  return std::make_shared<XReadCommand>(std::move(request));
+}
+
+XReadCommand::XReadCommand(StreamsReadRequest request)
+    : _request(std::move(request)) {
+  this->_type = CommandType::XRead;
+}
+
+StreamsReadRequest& XReadCommand::request() {
+  return this->_request;
+}
+
+Message XReadCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "XREAD");
+  parts.emplace_back(Message::Type::BulkString, "streams");
+  for (const auto& [key, id] : this->_request) {
+    parts.emplace_back(Message::Type::BulkString, key);
+    parts.emplace_back(Message::Type::BulkString, id.to_string());
+  }
   return Message(Message::Type::Array, parts);
 }

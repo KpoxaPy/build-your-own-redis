@@ -87,3 +87,17 @@ private:
   BoundStreamId _left_id;
   BoundStreamId _right_id;
 };
+
+class XReadCommand : public Command {
+public:
+  static CommandPtr try_parse(const Message&);
+
+  XReadCommand(StreamsReadRequest);
+
+  StreamsReadRequest& request();
+
+  Message construct() const override;
+
+private:
+  StreamsReadRequest _request;
+};

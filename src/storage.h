@@ -82,13 +82,16 @@ public:
   StreamRange() = default;
   StreamRange(Iterator begin, Iterator end);
 
-  Iterator begin();
-  Iterator end();
+  Iterator begin() const;
+  Iterator end() const;
 
 private:
   Iterator _begin;
   Iterator _end;
 };
+
+using StreamsReadRequest = std::vector<std::pair<std::string, StreamId>>;
+using StreamsReadResult = std::vector<std::pair<std::string, StreamRange>>;
 
 class IStorage : public IRDBParserListener {
 public:
@@ -99,6 +102,7 @@ public:
 
   virtual std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) = 0;
   virtual StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) = 0;
+  virtual StreamsReadResult xread(StreamsReadRequest) = 0;
 
   virtual StorageType type(std::string key) = 0;
 
@@ -141,6 +145,7 @@ public:
   std::tuple<StreamId, StreamErrorType> append(InputStreamId, StreamPartValue values);
 
   StreamRange xrange(BoundStreamId left_id, BoundStreamId right_id);
+  StreamRange xread(StreamId id);
 
 private:
   StreamDataType _data;
@@ -157,6 +162,7 @@ public:
 
   std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) override;
   StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) override;
+  StreamsReadResult xread(StreamsReadRequest) override;
 
   StorageType type(std::string key) override;
 

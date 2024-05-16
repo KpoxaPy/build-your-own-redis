@@ -153,21 +153,47 @@ void ServerTalker::listen(Message message) {
     } else if (type == CommandType::XRange) {
       auto& cmd = static_cast<XRangeCommand&>(*command);
 
-
       auto result = this->_storage->xrange(cmd.key(), cmd.left_id(), cmd.right_id());
       std::vector<Message> entries;
       for (const auto& [id, values]: result) {
-        std::vector<Message> entry;
-
-        entry.emplace_back(Message::Type::BulkString, id.to_string());
         std::vector<Message> entry_values;
         for (const auto& [key, value] : values) {
           entry_values.emplace_back(Message::Type::BulkString, key);
           entry_values.emplace_back(Message::Type::BulkString, value);
         }
-        entry.emplace_back(Message::Type::Array, std::move(entry_values));
 
+        std::vector<Message> entry;
+        entry.emplace_back(Message::Type::BulkString, id.to_string());
+        entry.emplace_back(Message::Type::Array, std::move(entry_values));
         entries.emplace_back(Message::Type::Array, std::move(entry));
+      }
+
+      this->next_say(Message::Type::Array, std::move(entries));
+
+    } else if (type == CommandType::XRead) {
+      auto& cmd = static_cast<XReadCommand&>(*command);
+
+      auto result = this->_storage->xread(std::move(cmd.request()));
+      std::vector<Message> entries;
+      for (const auto& [stream_id, stream_range]: result) {
+        std::vector<Message> stream_entries;
+        for (const auto& [id, values] : stream_range) {
+          std::vector<Message> entry_values;
+          for (const auto& [key, value] : values) {
+            entry_values.emplace_back(Message::Type::BulkString, key);
+            entry_values.emplace_back(Message::Type::BulkString, value);
+          }
+
+          std::vector<Message> entry;
+          entry.emplace_back(Message::Type::BulkString, id.to_string());
+          entry.emplace_back(Message::Type::Array, std::move(entry_values));
+          stream_entries.emplace_back(Message::Type::Array, std::move(entry));
+        }
+
+        std::vector<Message> stream_entry;
+        stream_entry.emplace_back(Message::Type::BulkString, stream_id);
+        stream_entry.emplace_back(Message::Type::Array, std::move(stream_entries));
+        entries.emplace_back(Message::Type::Array, std::move(stream_entry));
       }
 
       this->next_say(Message::Type::Array, std::move(entries));

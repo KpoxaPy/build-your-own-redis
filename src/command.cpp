@@ -55,6 +55,8 @@ CommandPtr Command::try_parse(const Message& message) {
     return XAddCommand::try_parse(message);
   } else if (command == "xrange") {
     return XRangeCommand::try_parse(message);
+  } else if (command == "xread") {
+    return XReadCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");

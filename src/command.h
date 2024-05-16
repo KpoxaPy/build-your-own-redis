@@ -29,6 +29,7 @@ enum class CommandType {
   Type,
   XAdd,
   XRange,
+  XRead,
 };
 
 class Command;

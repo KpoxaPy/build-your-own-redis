@@ -34,11 +34,11 @@ StreamRange::StreamRange(Iterator begin, Iterator end)
     : _begin(begin), _end(end) {
 }
 
-StreamRange::Iterator StreamRange::begin() {
+StreamRange::Iterator StreamRange::begin() const {
   return this->_begin;
 }
 
-StreamRange::Iterator StreamRange::end() {
+StreamRange::Iterator StreamRange::end() const {
   return this->_end;
 }
 
@@ -61,8 +61,10 @@ void StreamId::from_string(std::string_view str) {
 
   auto delim_pos = str.find('-');
 
+  bool seek_id = true;
   if (delim_pos == str.npos) {
-    throw StreamIdParseError(print_args("unexpected StreamId composition: ", str));
+    seek_id = false;
+    delim_pos = str.size();
   }
 
   auto maybe_ms = parseUInt64({str.begin() , str.begin() + delim_pos});
@@ -71,11 +73,13 @@ void StreamId::from_string(std::string_view str) {
   }
   this->ms = maybe_ms.value();
 
-  auto maybe_id = parseUInt64({str.begin() + delim_pos + 1, str.end()});
-  if (!maybe_id) {
-    throw StreamIdParseError(print_args("unexpected second part of StreamId: should be number: ", str));
+  if (seek_id) {
+    auto maybe_id = parseUInt64({str.begin() + delim_pos + 1, str.end()});
+    if (!maybe_id) {
+      throw StreamIdParseError(print_args("unexpected second part of StreamId: should be number: ", str));
+    }
+    this->id = maybe_id.value();
   }
-  this->id = maybe_id.value();
 }
 
 bool StreamId::operator<(const StreamId& other) const {
@@ -283,6 +287,16 @@ StreamRange StreamValue::xrange(BoundStreamId left_id, BoundStreamId right_id) {
   return {begin_it, end_it};
 }
 
+StreamRange StreamValue::xread(StreamId id) {
+  auto begin_it = this->_data.lower_bound(static_cast<StreamId>(id));
+
+  if (begin_it == this->_data.end()) {
+    return {};
+  }
+
+  return {++begin_it, this->_data.end()};
+}
+
 void Storage::restore(std::string key, std::string value, std::optional<Timepoint> expire_time) {
   auto ptr = std::make_unique<StringValue>(value);
   if (expire_time) {
@@ -350,6 +364,23 @@ StreamRange Storage::xrange(std::string key, BoundStreamId left_id, BoundStreamI
 
   auto& stored = static_cast<StreamValue&>(*it->second);
   return stored.xrange(left_id, right_id);
+}
+
+StreamsReadResult Storage::xread(StreamsReadRequest request) {
+  StreamsReadResult result;
+
+  for (const auto& [key, id]: request) {
+    auto it = this->_storage.find(key);
+    if (it == this->_storage.end()) {
+      result.emplace_back(key, StreamRange{});
+      continue;
+    }
+
+    auto& stored = static_cast<StreamValue&>(*it->second);
+    result.emplace_back(key, stored.xread(id));
+  }
+
+  return result;
 }
 
 StorageType Storage::type(std::string key) {
