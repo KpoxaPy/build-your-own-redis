@@ -244,6 +244,8 @@ std::tuple<StreamId, StreamErrorType> StreamValue::append(InputStreamId in_id, S
       return {StreamId{}, StreamErrorType::MustBeMoreThanTop};
     } else if (in_id.ms == last_id.ms and in_id.id <= last_id.id) {
       return {StreamId{}, StreamErrorType::MustBeMoreThanTop};
+    } else {
+      id = StreamId{in_id.ms, in_id.id};
     }
   } else if (in_id.general_wildcard) {
     std::size_t next_ms = duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();
