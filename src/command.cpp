@@ -50,6 +50,8 @@ CommandPtr Command::try_parse(const Message& message) {
     return ConfigCommand::try_parse(message);
   } else if (command == "type") {
     return TypeCommand::try_parse(message);
+  } else if (command == "xadd") {
+    return XAddCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");
@@ -445,7 +447,7 @@ CommandPtr KeysCommand::try_parse(const Message& message) {
   return std::make_shared<KeysCommand>(std::get<std::string>(data[1].getValue()));
 }
 
-KeysCommand::KeysCommand(std::string arg) 
+KeysCommand::KeysCommand(std::string arg)
   : _arg(arg) {
   this->_type = CommandType::Keys;
 }
@@ -550,5 +552,91 @@ Message TypeCommand::construct() const {
   std::vector<Message> parts;
   parts.emplace_back(Message::Type::BulkString, "TYPE");
   parts.emplace_back(Message::Type::BulkString, this->_key);
+  return Message(Message::Type::Array, parts);
+}
+
+
+
+CommandPtr XAddCommand::try_parse(const Message& message) {
+  const auto& data = std::get<std::vector<Message>>(message.getValue());
+
+  std::string key;
+  std::string stream_id;
+  XAddCommand::ValuesType values;
+
+  if (data.size() < 5) {
+    throw CommandParseError("XADD expects at least 4 argumens");
+  }
+
+  std::size_t data_pos = 1;
+  while (data_pos < data.size()) {
+    if (data_pos == 1) {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        throw CommandParseError("stream_key has invalid type");
+      }
+      key = std::get<std::string>(data[data_pos].getValue());
+      ++data_pos;
+
+    } else if (data_pos == 2) {
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        throw CommandParseError("stream_id has invalid type");
+      }
+      stream_id = std::get<std::string>(data[data_pos].getValue());
+      ++data_pos;
+
+    } else if (data_pos + 1 < data.size()) {
+      std::string pair_key;
+      std::string pair_value;
+
+      if (data[data_pos].type() != Message::Type::BulkString) {
+        throw CommandParseError("pair key has invalid type");
+      }
+      pair_key = std::get<std::string>(data[data_pos].getValue());
+
+      if (data[data_pos + 1].type() != Message::Type::BulkString) {
+        throw CommandParseError("pair value has invalid type");
+      }
+      pair_value = std::get<std::string>(data[data_pos].getValue());
+
+      values.emplace_back(std::move(pair_key), std::move(pair_value));
+      data_pos += 2;
+    } else {
+      throw CommandParseError("expected pairs of values");
+    }
+  }
+
+  return std::make_shared<XAddCommand>(std::move(key), std::move(stream_id), std::move(values));
+}
+
+XAddCommand::XAddCommand(std::string key, std::string stream_id, ValuesType values)
+  : _key(std::move(key)), _stream_id(std::move(stream_id)), _values(std::move(values)) {
+  this->_type = CommandType::XAdd;
+}
+
+const std::string& XAddCommand::key() const {
+  return this->_key;
+}
+
+const std::string& XAddCommand::stream_id() const {
+  return this->_stream_id;
+}
+
+const XAddCommand::ValuesType& XAddCommand::values() const {
+  return this->_values;
+}
+
+XAddCommand::ValuesType XAddCommand::move_values() {
+  return std::move(this->_values);
+}
+
+Message XAddCommand::construct() const {
+  std::vector<Message> parts;
+  parts.emplace_back(Message::Type::BulkString, "XADD");
+  parts.emplace_back(Message::Type::BulkString, this->_key);
+  parts.emplace_back(Message::Type::BulkString, this->_stream_id);
+  for (const auto& value : this->_values) {
+    parts.emplace_back(Message::Type::BulkString, value.first);
+    parts.emplace_back(Message::Type::BulkString, value.second);
+  }
   return Message(Message::Type::Array, parts);
 }

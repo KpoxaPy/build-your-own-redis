@@ -4,6 +4,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 class Message;
@@ -26,6 +27,7 @@ enum class CommandType {
   Keys,
   Config,
   Type,
+  XAdd,
 };
 
 class Command;
@@ -205,4 +207,27 @@ public:
 
 private:
   std::string _key;
+};
+
+class XAddCommand : public Command {
+public:
+  using ValuesType = std::vector<std::pair<std::string, std::string>>;
+
+  static CommandPtr try_parse(const Message&);
+
+  XAddCommand(std::string key, std::string stream_id, ValuesType values);
+
+  const std::string& key() const;
+
+  const std::string& stream_id() const;
+
+  const ValuesType& values() const;
+  ValuesType move_values();
+
+  Message construct() const override;
+
+private:
+  std::string _key;
+  std::string _stream_id;
+  ValuesType _values;
 };

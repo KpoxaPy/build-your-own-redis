@@ -58,7 +58,34 @@ std::optional<int> parseInt(const char* first, std::size_t size) {
   if (*first == '+') {
     ++first;
     --size;
-    
+
+    if (size == 0) {
+      return {};
+    }
+  }
+
+  if (std::from_chars(first, first + size, value).ec == std::errc{}) {
+    return value;
+  }
+
+  return {};
+}
+
+std::optional<std::uint64_t> parseUInt64(std::string_view str) {
+  return parseUInt64(str.data(), str.size());
+}
+
+std::optional<std::uint64_t> parseUInt64(const char* first, std::size_t size) {
+  std::uint64_t value;
+
+  if (size == 0) {
+    return {};
+  }
+
+  if (*first == '+') {
+    ++first;
+    --size;
+
     if (size == 0) {
       return {};
     }

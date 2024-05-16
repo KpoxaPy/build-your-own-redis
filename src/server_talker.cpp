@@ -139,6 +139,24 @@ void ServerTalker::listen(Message message) {
       auto& wait_command = static_cast<WaitCommand&>(*command);
       this->_replicas_manager->wait_for(wait_command.replicas(), wait_command.timeout_ms(), this->_slot_message);
 
+    } else if (type == CommandType::XAdd) {
+      auto& cmd = static_cast<XAddCommand&>(*command);
+
+      StreamId stream_id;
+      try {
+        stream_id = StreamId{cmd.stream_id()};
+      } catch (const StreamIdParseError& err) {
+        this->next_say(Message::Type::SimpleError, err.what());
+        return;
+      }
+
+      auto result = this->_storage->xadd(cmd.key(), StreamId{cmd.stream_id()}, std::move(cmd.move_values()));
+      if (std::get<1>(result) == StreamErrorType::None) {
+        this->next_say(Message::Type::BulkString, std::get<0>(result).to_string());
+      } else {
+        this->next_say(Message::Type::SimpleError, to_string(std::get<1>(result)));
+      }
+
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");
     }

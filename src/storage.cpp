@@ -35,7 +35,7 @@ StreamId::StreamId(std::size_t ms, std::size_t id)
 
 StreamId::StreamId(std::string_view str) {
   if (str.empty()) {
-    throw std::runtime_error("empty StreamId is not allowed");
+    throw StreamIdParseError("empty StreamId is not allowed");
   }
 
   if (str == "0") {
@@ -50,12 +50,12 @@ StreamId::StreamId(std::string_view str) {
   auto delim_pos = str.find('-');
 
   if (delim_pos == str.npos) {
-    throw std::runtime_error(print_args("unexpected StreamId composition: ", str));
+    throw StreamIdParseError(print_args("unexpected StreamId composition: ", str));
   }
 
-  auto maybe_ms = parseInt({str.begin() , str.begin() + delim_pos});
+  auto maybe_ms = parseUInt64({str.begin() , str.begin() + delim_pos});
   if (!maybe_ms) {
-    throw std::runtime_error(print_args("unexpected first part of StreamId: should be number: ", str));
+    throw StreamIdParseError(print_args("unexpected first part of StreamId: should be number: ", str));
   }
   this->ms = maybe_ms.value();
 
@@ -66,9 +66,9 @@ StreamId::StreamId(std::string_view str) {
     return;
   }
 
-  auto maybe_id = parseInt(id_part);
+  auto maybe_id = parseUInt64(id_part);
   if (!maybe_id) {
-    throw std::runtime_error(print_args("unexpected second part of StreamId: should be number: ", str));
+    throw StreamIdParseError(print_args("unexpected second part of StreamId: should be number: ", str));
   }
   this->id = maybe_id.value();
 }
@@ -95,6 +95,11 @@ std::string StreamId::to_string() const {
   }
 
   return std::to_string(this->ms) + "-" + std::to_string(this->id);
+}
+
+StreamIdParseError::StreamIdParseError(std::string reason)
+  : std::runtime_error(reason)
+{
 }
 
 Value::Value() {
@@ -128,6 +133,10 @@ std::optional<Timepoint> StringValue::getExpire() const {
   return this->_expire_time;
 }
 
+StreamValue::StreamValue() {
+  this->_type = StorageType::Stream;
+}
+
 std::tuple<StreamId, StreamErrorType> StreamValue::append(StreamId id, StreamPartValue values) {
   if (id.is_null()) {
     return {StreamId{}, StreamErrorType::MustBeNotZeroId};
@@ -158,7 +167,8 @@ std::tuple<StreamId, StreamErrorType> StreamValue::append(StreamId id, StreamPar
       return {StreamId{}, StreamErrorType::MustBeMoreThanTop};
     }
   } else if (id.general_wildcard) {
-    id = StreamId{0, 1};
+    std::size_t next_ms = duration_cast<std::chrono::milliseconds>(Clock::now().time_since_epoch()).count();
+    id = StreamId{next_ms, 0};
   } else if (id.id_wildcard) {
     if (id.ms == 0) {
       id = StreamId{0, 1};
@@ -239,7 +249,7 @@ StorageType Storage::type(std::string key) {
     return StorageType::None;
   }
 
-  return StorageType::String;
+  return it->second->type();
 }
 
 std::vector<std::string> Storage::keys(std::string_view selector) const {

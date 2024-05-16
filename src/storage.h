@@ -48,6 +48,11 @@ struct StreamId {
   std::string to_string() const;
 };
 
+class StreamIdParseError : public std::runtime_error {
+public:
+  StreamIdParseError(std::string);
+};
+
 class IStorage : public IRDBParserListener {
 public:
   virtual ~IStorage() = default;
@@ -93,6 +98,8 @@ private:
 
 class StreamValue : public Value {
 public:
+  StreamValue();
+
   std::tuple<StreamId, StreamErrorType> append(StreamId, StreamPartValue values);
 
 private:
