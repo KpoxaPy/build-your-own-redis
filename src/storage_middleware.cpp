@@ -27,6 +27,10 @@ std::optional<std::string> StorageMiddleware::get(std::string key) {
   return this->_storage->get(std::move(key));
 }
 
+std::tuple<StreamId, StreamErrorType> StorageMiddleware::xadd(std::string key, StreamId id, StreamPartValue values) {
+  return this->_storage->xadd(std::move(key), std::move(id), std::move(values));
+}
+
 StorageType StorageMiddleware::type(std::string key) {
   return this->_storage->type(std::move(key));
 }
