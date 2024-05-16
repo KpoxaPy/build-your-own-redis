@@ -1,6 +1,7 @@
 #include "replica_talker.h"
 
 #include "command.h"
+#include "command_storage.h"
 #include "rdb_parser.h"
 #include "utils.h"
 

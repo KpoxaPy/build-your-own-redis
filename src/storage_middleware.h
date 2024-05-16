@@ -86,7 +86,8 @@ public:
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;
 
-  std::tuple<StreamId, StreamErrorType> xadd(std::string key, StreamId id, StreamPartValue values) override;
+  std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) override;
+  StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) override;
 
   StorageType type(std::string key) override;
 

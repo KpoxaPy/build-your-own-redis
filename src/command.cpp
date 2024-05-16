@@ -1,5 +1,6 @@
 #include "command.h"
 
+#include "command_storage.h"
 #include "message.h"
 #include "utils.h"
 
@@ -27,7 +28,7 @@ CommandPtr Command::try_parse(const Message& message) {
     throw CommandParseError("unknown command");
   }
 
-  std::string command = to_lower_case(std::get<std::string>(data[0].getValue()));
+  const std::string command = to_lower_case(std::get<std::string>(data[0].getValue()));
   if (command == "ping") {
     return PingCommand::try_parse(message);
   } else if (command == "echo") {
@@ -52,10 +53,14 @@ CommandPtr Command::try_parse(const Message& message) {
     return TypeCommand::try_parse(message);
   } else if (command == "xadd") {
     return XAddCommand::try_parse(message);
+  } else if (command == "xrange") {
+    return XRangeCommand::try_parse(message);
   }
 
   throw CommandParseError("unknown command");
 }
+
+
 
 Message Command::construct() const {
   throw std::runtime_error("Command::construct should not be invoked");
@@ -115,141 +120,6 @@ Message EchoCommand::construct() const {
 }
 
 
-
-CommandPtr SetCommand::try_parse(const Message& message) {
-  const auto& data = std::get<std::vector<Message>>(message.getValue());
-
-  std::optional<std::string> key;
-  std::optional<std::string> value;
-  std::optional<int> expire_ms;
-
-  std::size_t data_pos = 1;
-  while (data_pos < data.size()) {
-    if (data_pos == 1) {
-      if (data[data_pos].type() != Message::Type::BulkString) {
-        throw CommandParseError("invalid type");
-      }
-      key = std::get<std::string>(data[data_pos].getValue());
-      ++data_pos;
-
-    } else if (data_pos == 2) {
-      if (data[data_pos].type() != Message::Type::BulkString) {
-        throw CommandParseError("invalid type");
-      }
-      value = std::get<std::string>(data[data_pos].getValue());
-      ++data_pos;
-
-    } else {
-      if (data[data_pos].type() != Message::Type::BulkString) {
-        throw CommandParseError("invalid type");
-      }
-      std::string param = to_lower_case(std::get<std::string>(data[data_pos].getValue()));
-
-      if (param == "px") {
-        if (data_pos + 1 >= data.size()) {
-          std::ostringstream ss;
-          ss << "param " << std::quoted(param) << " requires argument";
-          throw CommandParseError(ss.str());
-        }
-
-        if (data[data_pos + 1].type() != Message::Type::BulkString) {
-          throw CommandParseError("invalid px argument type");
-        }
-
-        const std::string& px_value_str = std::get<std::string>(data[data_pos + 1].getValue());
-        std::optional<int> px_value = parseInt(px_value_str.data(), px_value_str.size());
-
-        if (!px_value || px_value.value() <= 0) {
-          throw CommandParseError("invalid px argument value");
-        }
-
-        expire_ms = px_value.value();
-        data_pos += 2;
-
-      } else {
-        std::ostringstream ss;
-        ss << "unknown param " << std::quoted(param);
-        throw CommandParseError(ss.str());
-      }
-    }
-  }
-
-  if (!key || !value) {
-    throw CommandParseError("not enough arguments");
-  }
-
-  return std::make_shared<SetCommand>(key.value(), value.value(), expire_ms);
-}
-
-SetCommand::SetCommand(std::string key, std::string value, std::optional<int> expire_ms)
-  : _key(key)
-  , _value(value)
-  , _expire_ms(expire_ms)
-{
-  this->_type = CommandType::Set;
-}
-
-const std::string& SetCommand::key() const {
-  return this->_key;
-}
-
-const std::string& SetCommand::value() const {
-  return this->_value;
-}
-
-const std::optional<int>& SetCommand::expire_ms() const {
-  return this->_expire_ms;
-}
-
-Message SetCommand::construct() const {
-  std::vector<Message> parts;
-  parts.emplace_back(Message::Type::BulkString, "SET");
-  parts.emplace_back(Message::Type::BulkString, this->_key);
-  parts.emplace_back(Message::Type::BulkString, this->_value);
-
-  if (this->_expire_ms) {
-    parts.emplace_back(Message::Type::BulkString, "PX");
-    parts.emplace_back(Message::Type::BulkString, std::to_string(this->_expire_ms.value()));
-  }
-
-  return Message(Message::Type::Array, parts);
-}
-
-
-
-CommandPtr GetCommand::try_parse(const Message& message) {
-  const auto& data = std::get<std::vector<Message>>(message.getValue());
-  if (data.size() < 2) {
-    std::ostringstream ss;
-    ss << "GET command must have at least 1 argument, recieved " << data.size();
-    throw CommandParseError(ss.str());
-  }
-
-  if (data[1].type() != Message::Type::BulkString) {
-    std::ostringstream ss;
-    ss << "GET command must have first argument with type BulkString";
-    throw CommandParseError(ss.str());
-  }
-
-  return std::make_shared<GetCommand>(std::get<std::string>(data[1].getValue()));
-}
-
-GetCommand::GetCommand(std::string key)
-  : _key(key)
-{
-  this->_type = CommandType::Get;
-}
-
-const std::string& GetCommand::key() const {
-  return this->_key;
-}
-
-Message GetCommand::construct() const {
-  std::vector<Message> parts;
-  parts.emplace_back(Message::Type::BulkString, "GET");
-  parts.emplace_back(Message::Type::BulkString, this->_key);
-  return Message(Message::Type::Array, parts);
-}
 
 
 
@@ -516,127 +386,5 @@ Message ConfigCommand::construct() const {
     parts.emplace_back(Message::Type::BulkString, arg);
   }
 
-  return Message(Message::Type::Array, parts);
-}
-
-
-
-
-CommandPtr TypeCommand::try_parse(const Message& message) {
-  const auto& data = std::get<std::vector<Message>>(message.getValue());
-  if (data.size() < 2) {
-    std::ostringstream ss;
-    ss << "TYPE command must have at least 1 argument, recieved " << data.size();
-    throw CommandParseError(ss.str());
-  }
-
-  if (data[1].type() != Message::Type::BulkString) {
-    std::ostringstream ss;
-    ss << "TYPE command must have first argument with type BulkString";
-    throw CommandParseError(ss.str());
-  }
-
-  return std::make_shared<TypeCommand>(std::get<std::string>(data[1].getValue()));
-}
-
-TypeCommand::TypeCommand(std::string key)
-  : _key(key) {
-  this->_type = CommandType::Type;
-}
-
-const std::string& TypeCommand::key() const {
-  return this->_key;
-}
-
-Message TypeCommand::construct() const {
-  std::vector<Message> parts;
-  parts.emplace_back(Message::Type::BulkString, "TYPE");
-  parts.emplace_back(Message::Type::BulkString, this->_key);
-  return Message(Message::Type::Array, parts);
-}
-
-
-
-CommandPtr XAddCommand::try_parse(const Message& message) {
-  const auto& data = std::get<std::vector<Message>>(message.getValue());
-
-  std::string key;
-  std::string stream_id;
-  XAddCommand::ValuesType values;
-
-  if (data.size() < 5) {
-    throw CommandParseError("XADD expects at least 4 argumens");
-  }
-
-  std::size_t data_pos = 1;
-  while (data_pos < data.size()) {
-    if (data_pos == 1) {
-      if (data[data_pos].type() != Message::Type::BulkString) {
-        throw CommandParseError("stream_key has invalid type");
-      }
-      key = std::get<std::string>(data[data_pos].getValue());
-      ++data_pos;
-
-    } else if (data_pos == 2) {
-      if (data[data_pos].type() != Message::Type::BulkString) {
-        throw CommandParseError("stream_id has invalid type");
-      }
-      stream_id = std::get<std::string>(data[data_pos].getValue());
-      ++data_pos;
-
-    } else if (data_pos + 1 < data.size()) {
-      std::string pair_key;
-      std::string pair_value;
-
-      if (data[data_pos].type() != Message::Type::BulkString) {
-        throw CommandParseError("pair key has invalid type");
-      }
-      pair_key = std::get<std::string>(data[data_pos].getValue());
-
-      if (data[data_pos + 1].type() != Message::Type::BulkString) {
-        throw CommandParseError("pair value has invalid type");
-      }
-      pair_value = std::get<std::string>(data[data_pos].getValue());
-
-      values.emplace_back(std::move(pair_key), std::move(pair_value));
-      data_pos += 2;
-    } else {
-      throw CommandParseError("expected pairs of values");
-    }
-  }
-
-  return std::make_shared<XAddCommand>(std::move(key), std::move(stream_id), std::move(values));
-}
-
-XAddCommand::XAddCommand(std::string key, std::string stream_id, ValuesType values)
-  : _key(std::move(key)), _stream_id(std::move(stream_id)), _values(std::move(values)) {
-  this->_type = CommandType::XAdd;
-}
-
-const std::string& XAddCommand::key() const {
-  return this->_key;
-}
-
-const std::string& XAddCommand::stream_id() const {
-  return this->_stream_id;
-}
-
-const XAddCommand::ValuesType& XAddCommand::values() const {
-  return this->_values;
-}
-
-XAddCommand::ValuesType XAddCommand::move_values() {
-  return std::move(this->_values);
-}
-
-Message XAddCommand::construct() const {
-  std::vector<Message> parts;
-  parts.emplace_back(Message::Type::BulkString, "XADD");
-  parts.emplace_back(Message::Type::BulkString, this->_key);
-  parts.emplace_back(Message::Type::BulkString, this->_stream_id);
-  for (const auto& value : this->_values) {
-    parts.emplace_back(Message::Type::BulkString, value.first);
-    parts.emplace_back(Message::Type::BulkString, value.second);
-  }
   return Message(Message::Type::Array, parts);
 }

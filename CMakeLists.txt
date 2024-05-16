@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.13)
 
 project(build-your-own-redis-cpp)
 
-set(SOURCE_FILES 
+set(SOURCE_FILES
     src/command.cpp
+    src/command_storage.cpp
     src/events.cpp
     src/handler.cpp
     src/handlers_manager.cpp

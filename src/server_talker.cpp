@@ -1,6 +1,7 @@
 #include "server_talker.h"
 
 #include "base64.h"
+#include "command_storage.h"
 #include "utils.h"
 
 #include <filesystem>
@@ -142,20 +143,34 @@ void ServerTalker::listen(Message message) {
     } else if (type == CommandType::XAdd) {
       auto& cmd = static_cast<XAddCommand&>(*command);
 
-      StreamId stream_id;
-      try {
-        stream_id = StreamId{cmd.stream_id()};
-      } catch (const StreamIdParseError& err) {
-        this->next_say(Message::Type::SimpleError, err.what());
-        return;
-      }
-
-      auto result = this->_storage->xadd(cmd.key(), StreamId{cmd.stream_id()}, std::move(cmd.move_values()));
+      auto result = this->_storage->xadd(cmd.key(), std::move(cmd.stream_id()), std::move(cmd.values()));
       if (std::get<1>(result) == StreamErrorType::None) {
         this->next_say(Message::Type::BulkString, std::get<0>(result).to_string());
       } else {
         this->next_say(Message::Type::SimpleError, to_string(std::get<1>(result)));
       }
+
+    } else if (type == CommandType::XRange) {
+      auto& cmd = static_cast<XRangeCommand&>(*command);
+
+
+      auto result = this->_storage->xrange(cmd.key(), cmd.left_id(), cmd.right_id());
+      std::vector<Message> entries;
+      for (const auto& [id, values]: result) {
+        std::vector<Message> entry;
+
+        entry.emplace_back(Message::Type::BulkString, id.to_string());
+        std::vector<Message> entry_values;
+        for (const auto& [key, value] : values) {
+          entry_values.emplace_back(Message::Type::BulkString, key);
+          entry_values.emplace_back(Message::Type::BulkString, value);
+        }
+        entry.emplace_back(Message::Type::Array, std::move(entry_values));
+
+        entries.emplace_back(Message::Type::Array, std::move(entry));
+      }
+
+      this->next_say(Message::Type::Array, std::move(entries));
 
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");

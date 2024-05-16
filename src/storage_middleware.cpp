@@ -1,6 +1,7 @@
 #include "storage_middleware.h"
 
 #include "command.h"
+#include "command_storage.h"
 #include "debug.h"
 #include "utils.h"
 
@@ -27,8 +28,12 @@ std::optional<std::string> StorageMiddleware::get(std::string key) {
   return this->_storage->get(std::move(key));
 }
 
-std::tuple<StreamId, StreamErrorType> StorageMiddleware::xadd(std::string key, StreamId id, StreamPartValue values) {
+std::tuple<StreamId, StreamErrorType> StorageMiddleware::xadd(std::string key, InputStreamId id, StreamPartValue values) {
   return this->_storage->xadd(std::move(key), std::move(id), std::move(values));
+}
+
+StreamRange StorageMiddleware::xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) {
+  return this->_storage->xrange(std::move(key), std::move(left_id), std::move(right_id));
 }
 
 StorageType StorageMiddleware::type(std::string key) {

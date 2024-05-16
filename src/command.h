@@ -28,6 +28,7 @@ enum class CommandType {
   Config,
   Type,
   XAdd,
+  XRange,
 };
 
 class Command;
@@ -68,37 +69,6 @@ public:
 
 private:
   std::string _data;
-};
-
-class SetCommand : public Command {
-public:
-  static CommandPtr try_parse(const Message&);
-
-  SetCommand(std::string key, std::string value, std::optional<int> expire_ms = {});
-  const std::string& key() const;
-  const std::string& value() const;
-  const std::optional<int>& expire_ms() const;
-
-  Message construct() const override;
-
-private:
-  std::string _key;
-  std::string _value;
-  std::optional<int> _expire_ms;
-};
-
-class GetCommand : public Command {
-public:
-  static CommandPtr try_parse(const Message&);
-
-  GetCommand(std::string key);
-
-  const std::string& key() const;
-
-  Message construct() const override;
-
-private:
-  std::string _key;
 };
 
 class InfoCommand : public Command {
@@ -193,41 +163,4 @@ public:
 private:
   std::string _action;
   std::vector<std::string> _args;
-};
-
-class TypeCommand : public Command {
-public:
-  static CommandPtr try_parse(const Message&);
-
-  TypeCommand(std::string key);
-
-  const std::string& key() const;
-
-  Message construct() const override;
-
-private:
-  std::string _key;
-};
-
-class XAddCommand : public Command {
-public:
-  using ValuesType = std::vector<std::pair<std::string, std::string>>;
-
-  static CommandPtr try_parse(const Message&);
-
-  XAddCommand(std::string key, std::string stream_id, ValuesType values);
-
-  const std::string& key() const;
-
-  const std::string& stream_id() const;
-
-  const ValuesType& values() const;
-  ValuesType move_values();
-
-  Message construct() const override;
-
-private:
-  std::string _key;
-  std::string _stream_id;
-  ValuesType _values;
 };

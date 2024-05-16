@@ -28,14 +28,9 @@ enum class StreamErrorType {
 
 std::string to_string(StreamErrorType type);
 
-using StreamPartValue = std::vector<std::pair<std::string, std::string>>;
-
 struct StreamId {
   std::size_t ms = 0;
   std::size_t id = 0;
-
-  bool id_wildcard = false;
-  bool general_wildcard = false;
 
   StreamId(std::size_t ms = 0, std::size_t id = 0);
   StreamId(std::string_view);
@@ -43,14 +38,56 @@ struct StreamId {
   bool operator<(const StreamId&) const;
 
   bool is_null() const;
-  bool is_full_defined() const;
 
+  void from_string(std::string_view);
+  std::string to_string() const;
+};
+
+struct InputStreamId : public StreamId {
+  bool id_wildcard = false;
+  bool general_wildcard = false;
+
+  InputStreamId() = default;
+  InputStreamId(std::string_view);
+
+  bool is_full_defined() const;
+  bool is_null() const;
+
+  void from_string(std::string_view);
+  std::string to_string() const;
+};
+
+struct BoundStreamId : public StreamId {
+  bool is_left_unbound = false;
+  bool is_right_unbound = false;
+
+  BoundStreamId() = default;
+  BoundStreamId(std::string_view);
+
+  void from_string(std::string_view);
   std::string to_string() const;
 };
 
 class StreamIdParseError : public std::runtime_error {
 public:
   StreamIdParseError(std::string);
+};
+
+using StreamPartValue = std::vector<std::pair<std::string, std::string>>;
+using StreamDataType = std::map<StreamId, StreamPartValue>;
+class StreamRange {
+public:
+  using Iterator = StreamDataType::const_iterator;
+
+  StreamRange() = default;
+  StreamRange(Iterator begin, Iterator end);
+
+  Iterator begin();
+  Iterator end();
+
+private:
+  Iterator _begin;
+  Iterator _end;
 };
 
 class IStorage : public IRDBParserListener {
@@ -60,7 +97,8 @@ public:
   virtual void set(std::string key, std::string value, std::optional<int> expire_ms) = 0;
   virtual std::optional<std::string> get(std::string key) = 0;
 
-  virtual std::tuple<StreamId, StreamErrorType> xadd(std::string key, StreamId id, StreamPartValue values) = 0;
+  virtual std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) = 0;
+  virtual StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) = 0;
 
   virtual StorageType type(std::string key) = 0;
 
@@ -100,22 +138,25 @@ class StreamValue : public Value {
 public:
   StreamValue();
 
-  std::tuple<StreamId, StreamErrorType> append(StreamId, StreamPartValue values);
+  std::tuple<StreamId, StreamErrorType> append(InputStreamId, StreamPartValue values);
+
+  StreamRange xrange(BoundStreamId left_id, BoundStreamId right_id);
 
 private:
-  std::map<StreamId, StreamPartValue> _data;
+  StreamDataType _data;
 };
 
 class Storage : public IStorage {
 public:
-  Storage();
+  Storage() = default;
 
   void restore(std::string key, std::string value, std::optional<Timepoint> expire_time) override;
 
   void set(std::string key, std::string value, std::optional<int> expire_ms) override;
   std::optional<std::string> get(std::string key) override;
 
-  std::tuple<StreamId, StreamErrorType> xadd(std::string key, StreamId id, StreamPartValue values) override;
+  std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) override;
+  StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) override;
 
   StorageType type(std::string key) override;
 
