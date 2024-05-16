@@ -35,6 +35,7 @@ struct StreamId {
   StreamId(std::size_t ms = 0, std::size_t id = 0);
   StreamId(std::string_view);
 
+  bool operator==(const StreamId&) const;
   bool operator<(const StreamId&) const;
 
   bool is_null() const;

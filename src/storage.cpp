@@ -82,6 +82,10 @@ void StreamId::from_string(std::string_view str) {
   }
 }
 
+bool StreamId::operator==(const StreamId& other) const {
+  return this->ms == other.ms and this->id == other.id;
+}
+
 bool StreamId::operator<(const StreamId& other) const {
   return (this->ms < other.ms) or (this->ms == other.ms and this->id < other.id);
 }
@@ -292,9 +296,11 @@ StreamRange StreamValue::xread(StreamId id) {
 
   if (begin_it == this->_data.end()) {
     return {};
+  } else if (begin_it->first == id) {
+    ++begin_it;
   }
 
-  return {++begin_it, this->_data.end()};
+  return {begin_it, this->_data.end()};
 }
 
 void Storage::restore(std::string key, std::string value, std::optional<Timepoint> expire_time) {
@@ -377,7 +383,10 @@ StreamsReadResult Storage::xread(StreamsReadRequest request) {
     }
 
     auto& stored = static_cast<StreamValue&>(*it->second);
-    result.emplace_back(key, stored.xread(id));
+    auto stored_result = stored.xread(id);
+    if (stored_result.begin() != stored_result.end()) {
+      result.emplace_back(key, std::move(stored_result));
+    }
   }
 
   return result;
