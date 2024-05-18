@@ -36,8 +36,8 @@ StreamRange StorageMiddleware::xrange(std::string key, BoundStreamId left_id, Bo
   return this->_storage->xrange(std::move(key), std::move(left_id), std::move(right_id));
 }
 
-StreamsReadResult StorageMiddleware::xread(StreamsReadRequest request) {
-  return this->_storage->xread(std::move(request));
+void StorageMiddleware::xread(StreamsReadRequest request, std::optional<std::size_t> block_ms, std::function<void(StreamsReadResult)> callback) {
+  return this->_storage->xread(std::move(request), block_ms, std::move(callback));
 }
 
 StorageType StorageMiddleware::type(std::string key) {

@@ -1,8 +1,10 @@
 #include "storage.h"
 
+#include "debug.h"
 #include "utils.h"
 
 #include <algorithm>
+#include <iostream>
 #include <memory>
 
 std::string to_string(StorageType type) {
@@ -303,6 +305,38 @@ StreamRange StreamValue::xread(StreamId id) {
   return {begin_it, this->_data.end()};
 }
 
+Storage::WaitHandle::WaitHandle(Storage& parent, StreamsReadRequest request, std::size_t timeout_ms, std::function<void(StreamsReadResult)> callback)
+  : parent(parent), timeout_ms(timeout_ms), request(std::move(request)), callback(std::move(callback))
+{
+}
+
+void Storage::WaitHandle::setup() {
+  for (const auto& [key, id] : this->request) {
+    auto it = this->parent._stream_waitlists[key].insert(this->parent._stream_waitlists[key].end(), this->shared_from_this());
+    this->stream_its[key] = it;
+  }
+
+  if (this->timeout_ms > 0) {
+    this->timeout = this->parent._event_loop->set_timeout(this->timeout_ms, [wptr = this->weak_from_this()]() {
+      if (auto ptr = wptr.lock()) {
+        ptr->reply();
+      }
+    });
+  }
+}
+
+void Storage::WaitHandle::reply() {
+  this->parent.xread(std::move(this->request), {}, std::move(this->callback));
+
+  for (auto& [key, it]: this->stream_its) {
+    this->parent._stream_waitlists[key].erase(it);
+  }
+}
+
+Storage::Storage(EventLoopPtr event_loop)
+  : _event_loop(event_loop) {
+}
+
 void Storage::restore(std::string key, std::string value, std::optional<Timepoint> expire_time) {
   auto ptr = std::make_unique<StringValue>(value);
   if (expire_time) {
@@ -343,6 +377,8 @@ std::optional<std::string> Storage::get(std::string key) {
 }
 
 std::tuple<StreamId, StreamErrorType> Storage::xadd(std::string key, InputStreamId id, StreamPartValue values) {
+  std::tuple<StreamId, StreamErrorType> result;
+
   auto it = this->_storage.find(key);
   if (it != this->_storage.end()) {
     if (it->second->type() != StorageType::Stream) {
@@ -351,14 +387,30 @@ std::tuple<StreamId, StreamErrorType> Storage::xadd(std::string key, InputStream
 
     auto& stored = static_cast<StreamValue&>(*it->second);
 
-    return stored.append(id, std::move(values));
+    result = stored.append(id, std::move(values));
+  } else {
+    auto ptr = std::make_unique<StreamValue>();
+    result = ptr->append(id, std::move(values));
+    if (std::get<1>(result) == StreamErrorType::None) {
+      this->_storage.emplace(key, std::move(ptr));
+    }
   }
 
-  auto ptr = std::make_unique<StreamValue>();
-  auto result = ptr->append(id, std::move(values));
   if (std::get<1>(result) == StreamErrorType::None) {
-    this->_storage.emplace(key, std::move(ptr));
+    std::list<std::weak_ptr<WaitHandle>> handles;
+    for (auto ptr: this->_stream_waitlists[key]) {
+      handles.emplace_back(ptr);
+    }
+
+    this->_event_loop->post([handles](){
+      for (auto& wptr: handles) {
+        if (auto ptr = wptr.lock()) {
+          ptr->reply();
+        }
+      }
+    }).forget();
   }
+
   return result;
 }
 
@@ -372,13 +424,12 @@ StreamRange Storage::xrange(std::string key, BoundStreamId left_id, BoundStreamI
   return stored.xrange(left_id, right_id);
 }
 
-StreamsReadResult Storage::xread(StreamsReadRequest request) {
+void Storage::xread(StreamsReadRequest request, std::optional<std::size_t> block_ms, std::function<void(StreamsReadResult)> callback) {
   StreamsReadResult result;
 
   for (const auto& [key, id]: request) {
     auto it = this->_storage.find(key);
     if (it == this->_storage.end()) {
-      result.emplace_back(key, StreamRange{});
       continue;
     }
 
@@ -389,7 +440,16 @@ StreamsReadResult Storage::xread(StreamsReadRequest request) {
     }
   }
 
-  return result;
+  if (block_ms) {
+    if (result.size() > 0) {
+      callback(std::move(result));
+    } else {
+      auto wait_handle_ptr = std::make_shared<WaitHandle>(*this, request, block_ms.value(), std::move(callback));
+      wait_handle_ptr->setup();
+    }
+  } else {
+    callback(std::move(result));
+  }
 }
 
 StorageType Storage::type(std::string key) {

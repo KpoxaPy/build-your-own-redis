@@ -1,9 +1,12 @@
 #pragma once
 
+#include "events.h"
 #include "rdb_parser.h"
 
 #include <chrono>
 #include <exception>
+#include <functional>
+#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -103,7 +106,7 @@ public:
 
   virtual std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) = 0;
   virtual StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) = 0;
-  virtual StreamsReadResult xread(StreamsReadRequest) = 0;
+  virtual void xread(StreamsReadRequest, std::optional<std::size_t> block_ms, std::function<void(StreamsReadResult)> callback) = 0;
 
   virtual StorageType type(std::string key) = 0;
 
@@ -153,8 +156,29 @@ private:
 };
 
 class Storage : public IStorage {
+  struct WaitHandle;
+  using WaitHandlePtr = std::shared_ptr<WaitHandle>;
+  using WaitList = std::list<WaitHandlePtr>;
+
+  struct WaitHandle : public std::enable_shared_from_this<WaitHandle> {
+    WaitHandle(Storage&, StreamsReadRequest, std::size_t timeout_ms, std::function<void(StreamsReadResult)>);
+
+    Storage& parent;
+
+    std::size_t timeout_ms;
+    EventLoop::JobHandle timeout;
+
+    StreamsReadRequest request;
+    std::function<void(StreamsReadResult)> callback;
+
+    std::unordered_map<std::string, WaitList::iterator> stream_its;
+
+    void setup();
+    void reply();
+  };
+
 public:
-  Storage() = default;
+  Storage(EventLoopPtr event_loop);
 
   void restore(std::string key, std::string value, std::optional<Timepoint> expire_time) override;
 
@@ -163,12 +187,16 @@ public:
 
   std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) override;
   StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) override;
-  StreamsReadResult xread(StreamsReadRequest) override;
+  void xread(StreamsReadRequest, std::optional<std::size_t> block_ms, std::function<void(StreamsReadResult)> callback) override;
 
   StorageType type(std::string key) override;
 
   std::vector<std::string> keys(std::string_view selector) const override;
 
 private:
+  EventLoopPtr _event_loop;
+
   std::unordered_map<std::string, ValuePtr> _storage;
+
+  std::unordered_map<std::string, WaitList> _stream_waitlists;
 };

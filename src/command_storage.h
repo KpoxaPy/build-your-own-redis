@@ -92,12 +92,14 @@ class XReadCommand : public Command {
 public:
   static CommandPtr try_parse(const Message&);
 
-  XReadCommand(StreamsReadRequest);
+  XReadCommand(StreamsReadRequest, std::optional<std::size_t> block_ms);
 
   StreamsReadRequest& request();
+  const std::optional<std::size_t>& block_ms();
 
   Message construct() const override;
 
 private:
   StreamsReadRequest _request;
+  std::optional<std::size_t> _block_ms;
 };

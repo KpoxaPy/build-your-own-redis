@@ -173,30 +173,38 @@ void ServerTalker::listen(Message message) {
     } else if (type == CommandType::XRead) {
       auto& cmd = static_cast<XReadCommand&>(*command);
 
-      auto result = this->_storage->xread(std::move(cmd.request()));
-      std::vector<Message> entries;
-      for (const auto& [stream_id, stream_range]: result) {
-        std::vector<Message> stream_entries;
-        for (const auto& [id, values] : stream_range) {
-          std::vector<Message> entry_values;
-          for (const auto& [key, value] : values) {
-            entry_values.emplace_back(Message::Type::BulkString, key);
-            entry_values.emplace_back(Message::Type::BulkString, value);
-          }
-
-          std::vector<Message> entry;
-          entry.emplace_back(Message::Type::BulkString, id.to_string());
-          entry.emplace_back(Message::Type::Array, std::move(entry_values));
-          stream_entries.emplace_back(Message::Type::Array, std::move(entry));
+      this->_storage->xread(std::move(cmd.request()), cmd.block_ms(),
+      [slot_wptr = std::weak_ptr(this->_slot_message)] (StreamsReadResult result) {
+        auto slot_ptr = slot_wptr.lock();
+        if (!slot_ptr) {
+          return;
         }
 
-        std::vector<Message> stream_entry;
-        stream_entry.emplace_back(Message::Type::BulkString, stream_id);
-        stream_entry.emplace_back(Message::Type::Array, std::move(stream_entries));
-        entries.emplace_back(Message::Type::Array, std::move(stream_entry));
-      }
+        std::vector<Message> entries;
+        for (const auto& [stream_id, stream_range]: result) {
+          std::vector<Message> stream_entries;
+          for (const auto& [id, values] : stream_range) {
+            std::vector<Message> entry_values;
+            for (const auto& [key, value] : values) {
+              entry_values.emplace_back(Message::Type::BulkString, key);
+              entry_values.emplace_back(Message::Type::BulkString, value);
+            }
 
-      this->next_say(Message::Type::Array, std::move(entries));
+            std::vector<Message> entry;
+            entry.emplace_back(Message::Type::BulkString, id.to_string());
+            entry.emplace_back(Message::Type::Array, std::move(entry_values));
+            stream_entries.emplace_back(Message::Type::Array, std::move(entry));
+          }
+
+          std::vector<Message> stream_entry;
+          stream_entry.emplace_back(Message::Type::BulkString, stream_id);
+          stream_entry.emplace_back(Message::Type::Array, std::move(stream_entries));
+          entries.emplace_back(Message::Type::Array, std::move(stream_entry));
+        }
+
+        slot_ptr->call(Message(Message::Type::Array, std::move(entries)));
+
+      });
 
     } else {
       this->next_say(Message::Type::SimpleError, "unimplemented command");

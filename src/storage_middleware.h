@@ -88,7 +88,7 @@ public:
 
   std::tuple<StreamId, StreamErrorType> xadd(std::string key, InputStreamId id, StreamPartValue values) override;
   StreamRange xrange(std::string key, BoundStreamId left_id, BoundStreamId right_id) override;
-  StreamsReadResult xread(StreamsReadRequest) override;
+  void xread(StreamsReadRequest, std::optional<std::size_t> block_ms, std::function<void(StreamsReadResult)> callback) override;
 
   StorageType type(std::string key) override;
 

@@ -72,7 +72,15 @@ public:
       this->invalidate();
     }
 
+    void forget() {
+      this->do_invalidate = false;
+    }
+
     void invalidate() {
+      if (!this->do_invalidate) {
+        return;
+      }
+
       if (auto ptr = this->job.lock()) {
         ptr->is_valid = false;
       }
@@ -80,6 +88,7 @@ public:
 
   private:
     std::weak_ptr<JobWrapper> job;
+    bool do_invalidate = true;
 
     JobHandle(const JobWrapperPtr& ptr) {
       this->job = ptr;

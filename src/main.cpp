@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
     auto event_loop = EventLoop::make();
 
     auto poller = std::make_shared<Poller>(event_loop);
-    auto storage = std::make_shared<Storage>();
+    auto storage = std::make_shared<Storage>(event_loop);
     auto storage_middleware = std::make_shared<StorageMiddleware>(event_loop);
     auto handlers_manager = std::make_shared<HandlersManager>(event_loop);
     auto server = std::make_shared<Server>(event_loop, info);
