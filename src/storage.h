@@ -72,6 +72,16 @@ struct BoundStreamId : public StreamId {
   std::string to_string() const;
 };
 
+struct ReadStreamId : public StreamId {
+  bool is_next_expected = false;
+
+  ReadStreamId() = default;
+  ReadStreamId(std::string_view);
+
+  void from_string(std::string_view);
+  std::string to_string() const;
+};
+
 class StreamIdParseError : public std::runtime_error {
 public:
   StreamIdParseError(std::string);
@@ -94,7 +104,7 @@ private:
   Iterator _end;
 };
 
-using StreamsReadRequest = std::vector<std::pair<std::string, StreamId>>;
+using StreamsReadRequest = std::vector<std::pair<std::string, ReadStreamId>>;
 using StreamsReadResult = std::vector<std::pair<std::string, StreamRange>>;
 
 class IStorage : public IRDBParserListener {
@@ -149,7 +159,9 @@ public:
   std::tuple<StreamId, StreamErrorType> append(InputStreamId, StreamPartValue values);
 
   StreamRange xrange(BoundStreamId left_id, BoundStreamId right_id);
-  StreamRange xread(StreamId id);
+  StreamRange xread(ReadStreamId id);
+
+  StreamId last_id();
 
 private:
   StreamDataType _data;

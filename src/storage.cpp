@@ -52,6 +52,18 @@ StreamId::StreamId(std::string_view str) {
   this->from_string(str);
 }
 
+bool StreamId::operator==(const StreamId& other) const {
+  return this->ms == other.ms and this->id == other.id;
+}
+
+bool StreamId::operator<(const StreamId& other) const {
+  return (this->ms < other.ms) or (this->ms == other.ms and this->id < other.id);
+}
+
+bool StreamId::is_null() const {
+  return this->ms == 0 and this->id == 0;
+}
+
 void StreamId::from_string(std::string_view str) {
   if (str.empty()) {
     throw StreamIdParseError("empty StreamId is not allowed");
@@ -84,16 +96,8 @@ void StreamId::from_string(std::string_view str) {
   }
 }
 
-bool StreamId::operator==(const StreamId& other) const {
-  return this->ms == other.ms and this->id == other.id;
-}
-
-bool StreamId::operator<(const StreamId& other) const {
-  return (this->ms < other.ms) or (this->ms == other.ms and this->id < other.id);
-}
-
-bool StreamId::is_null() const {
-  return this->ms == 0 and this->id == 0;
+std::string StreamId::to_string() const {
+  return std::to_string(this->ms) + "-" + std::to_string(this->id);
 }
 
 InputStreamId::InputStreamId(std::string_view str) {
@@ -181,8 +185,24 @@ std::string BoundStreamId::to_string() const {
   return StreamId::to_string();
 }
 
-std::string StreamId::to_string() const {
-  return std::to_string(this->ms) + "-" + std::to_string(this->id);
+ReadStreamId::ReadStreamId(std::string_view str) {
+  this->from_string(str);
+}
+
+void ReadStreamId::from_string(std::string_view str) {
+  if (str == "$") {
+    this->is_next_expected = true;
+    return;
+  }
+
+  StreamId::from_string(str);
+}
+
+std::string ReadStreamId::to_string() const {
+  if (this->is_next_expected) {
+    return "$";
+  }
+  return StreamId::to_string();
 }
 
 StreamIdParseError::StreamIdParseError(std::string reason)
@@ -293,7 +313,11 @@ StreamRange StreamValue::xrange(BoundStreamId left_id, BoundStreamId right_id) {
   return {begin_it, end_it};
 }
 
-StreamRange StreamValue::xread(StreamId id) {
+StreamRange StreamValue::xread(ReadStreamId id) {
+  if (id.is_next_expected) {
+    return {};
+  }
+
   auto begin_it = this->_data.lower_bound(static_cast<StreamId>(id));
 
   if (begin_it == this->_data.end()) {
@@ -305,15 +329,34 @@ StreamRange StreamValue::xread(StreamId id) {
   return {begin_it, this->_data.end()};
 }
 
+StreamId StreamValue::last_id() {
+  if (this->_data.size() == 0) {
+    return {};
+  }
+
+  return this->_data.rbegin()->first;
+}
+
 Storage::WaitHandle::WaitHandle(Storage& parent, StreamsReadRequest request, std::size_t timeout_ms, std::function<void(StreamsReadResult)> callback)
   : parent(parent), timeout_ms(timeout_ms), request(std::move(request)), callback(std::move(callback))
 {
 }
 
 void Storage::WaitHandle::setup() {
-  for (const auto& [key, id] : this->request) {
+  for (auto& [key, id] : this->request) {
     auto it = this->parent._stream_waitlists[key].insert(this->parent._stream_waitlists[key].end(), this->shared_from_this());
     this->stream_its[key] = it;
+
+    if (id.is_next_expected) {
+      auto stream_it = this->parent._storage.find(key);
+      if (stream_it == this->parent._storage.end()) {
+        id = ReadStreamId("0");
+        continue;
+      }
+
+      auto& stored = static_cast<StreamValue&>(*stream_it->second);
+      id = ReadStreamId(stored.last_id().to_string());
+    }
   }
 
   if (this->timeout_ms > 0) {

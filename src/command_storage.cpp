@@ -345,7 +345,7 @@ CommandPtr XReadCommand::try_parse(const Message& message) {
   bool met_streams = false;
   std::size_t expected_streams = 0;
   std::vector<std::string> stream_keys;
-  std::vector<StreamId> stream_ids;
+  std::vector<ReadStreamId> stream_ids;
 
   std::optional<std::size_t> block_ms;
 
@@ -365,7 +365,7 @@ CommandPtr XReadCommand::try_parse(const Message& message) {
         }
 
         try {
-          stream_ids.emplace_back(StreamId{std::get<std::string>(data[data_pos].getValue())});
+          stream_ids.emplace_back(ReadStreamId{std::get<std::string>(data[data_pos].getValue())});
         } catch (const StreamIdParseError& err) {
           throw CommandParseError(err.what());
         }
